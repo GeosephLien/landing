@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIVERSE Avatar Landing</title>
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html,
+    body,
+    body * {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="hero-shell">
+      <section class="hero" aria-label="Avatar landing hero">
+        <div class="hero-backdrop hero-backdrop-left" aria-hidden="true"></div>
+        <div class="hero-backdrop hero-backdrop-right" aria-hidden="true"></div>
+        <div class="hero-orb hero-orb-a" aria-hidden="true"></div>
+        <div class="hero-orb hero-orb-b" aria-hidden="true"></div>
+        <div class="hero-orb hero-orb-c" aria-hidden="true"></div>
+        <div class="hero-orb hero-orb-d" aria-hidden="true"></div>
+        <div class="hero-grid">
+          <figure class="hero-figure hero-figure-single">
+            <div class="figure-glow"></div>
+            <div class="figure-particles" aria-hidden="true">
+              <span class="figure-particle particle-1"></span>
+              <span class="figure-particle particle-2"></span>
+              <span class="figure-particle particle-3"></span>
+              <span class="figure-particle particle-4"></span>
+              <span class="figure-particle particle-5"></span>
+              <span class="figure-particle particle-6"></span>
+              <span class="figure-particle particle-7"></span>
+              <span class="figure-particle particle-8"></span>
+            </div>
+            <div class="hero-figure-rotator">
+              <img class="hero-figure-image hero-figure-image-main" src="images/zack_mini.png" alt="Zack avatar character">
+            </div>
+          </figure>
+
+          <section class="hero-copy">
+            <p class="eyebrow">VIVERSE Avatar Experience</p>
+            <h1>
+              Build Your
+              <span data-text="Metaverse Identity">Metaverse Identity</span>
+            </h1>
+            <p class="hero-description">
+              Create expressive avatars, refine every detail, and step into immersive worlds with a character that feels like yours.
+            </p>
+            <div class="hero-actions">
+              <a class="hero-cta" href="https://geosephlien.github.io/partner-threejs/" target="_self">Try Now!</a>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const heroFigureMainImage = document.querySelector(".hero-figure-image-main");
+    const heroFigureImages = Array.from(document.querySelectorAll(".hero-figure img"));
+    const heroFigureVariants = [
+      {
+        src: "images/zack_mini.png",
+        alt: "Zack avatar character"
+      },
+      {
+        src: "images/Iris_mini.png",
+        alt: "Iris avatar character"
+      }
+    ];
+
+    if (heroFigureMainImage && heroFigureVariants.length > 0) {
+      const randomVariant = heroFigureVariants[Math.floor(Math.random() * heroFigureVariants.length)];
+      heroFigureMainImage.src = randomVariant.src;
+      heroFigureMainImage.alt = randomVariant.alt;
+    }
+
+    document.addEventListener("selectstart", (event) => {
+      event.preventDefault();
+    });
+
+    document.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+    });
+
+    document.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+    });
+
+    const waitForImageReady = (image) => {
+      if (image.complete && image.naturalWidth > 0) {
+        if (typeof image.decode === "function") {
+          return image.decode().catch(() => {});
+        }
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        const finish = () => {
+          cleanup();
+          if (typeof image.decode === "function") {
+            image.decode().catch(() => {}).finally(resolve);
+            return;
+          }
+          resolve();
+        };
+        const cleanup = () => {
+          image.removeEventListener("load", finish);
+          image.removeEventListener("error", finish);
+        };
+
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
+      });
+    };
+
+    const startHeroEntryWhenReady = () => {
+      if (heroFigureImages.length === 0) {
+        document.body.classList.add("hero-assets-ready");
+        return;
+      }
+
+      Promise.all(heroFigureImages.map(waitForImageReady)).finally(() => {
+        window.requestAnimationFrame(() => {
+          document.body.classList.add("hero-assets-ready");
+        });
+      });
+    };
+
+    startHeroEntryWhenReady();
+  </script>
+</body>
+</html>
