@@ -306,13 +306,13 @@
     return error && (error.name === 'AbortError' || error.message === 'The user aborted a request.');
   }
 
-  async function saveBlobWithFilePicker(blob, filename) {
+  async function requestFileHandle(filename) {
     if (typeof window.showSaveFilePicker !== 'function') {
       throw new Error('This browser does not support the file picker required for VRM download.');
     }
 
     const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '.vrm';
-    const handle = await window.showSaveFilePicker({
+    return window.showSaveFilePicker({
       suggestedName: filename,
       types: [
         {
@@ -323,6 +323,9 @@
         }
       ]
     });
+  }
+
+  async function saveBlobWithFileHandle(blob, handle) {
     const writable = await handle.createWritable();
     await writable.write(blob);
     await writable.close();
@@ -434,6 +437,17 @@
       return;
     }
 
+    let fileHandle = null;
+    try {
+      fileHandle = await requestFileHandle(state.pendingFileName || 'avatar.vrm');
+    } catch (error) {
+      if (isFilePickerAbortError(error)) {
+        return;
+      }
+      setStatus(verificationStatus, error.message || 'Unable to open the file picker.', 'error');
+      return;
+    }
+
     state.downloading = true;
     syncVerificationButtons();
     setStatus(verificationStatus, 'Claiming your draft avatar...');
@@ -453,7 +467,7 @@
 
       const blob = await response.blob();
       try {
-        await saveBlobWithFilePicker(blob, state.pendingFileName || 'avatar.vrm');
+        await saveBlobWithFileHandle(blob, fileHandle);
       } catch (error) {
         if (isFilePickerAbortError(error)) {
           setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
