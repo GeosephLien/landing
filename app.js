@@ -36,6 +36,7 @@
     resumeToCreator: false,
     pendingAvatarKey: '',
     pendingFileName: 'avatar.vrm',
+    pendingVrmBlob: null,
     downloadRequestId: '',
     verifiedForDownload: false,
     verifiedCodeValue: '',
@@ -225,7 +226,7 @@
     }
 
     if (verificationDownloadButton) {
-      verificationDownloadButton.disabled = !state.verifiedForDownload || !state.uploadReady || state.downloading || state.verifyingCode || !state.pendingAvatarKey;
+      verificationDownloadButton.disabled = !state.verifiedForDownload || !state.uploadReady || state.downloading || state.verifyingCode || !state.pendingAvatarKey || !(state.pendingVrmBlob instanceof Blob);
       verificationDownloadButton.textContent = state.downloading
         ? 'Downloading...'
         : (state.verifyingCode ? 'Verifying...' : 'Download VRM');
@@ -382,25 +383,6 @@
     return payload;
   }
 
-  async function fetchDownloadUrl(key, sessionToken) {
-    const response = await fetch(
-      `${SYSTEM_DEFAULTS.apiBase}/api/ac2/download-url?key=${encodeURIComponent(key)}&expiresIn=3600`,
-      {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${sessionToken}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to create download URL (${response.status})`);
-    }
-
-    return response.json();
-  }
-
   function isFilePickerAbortError(error) {
     return error && (error.name === 'AbortError' || error.message === 'The user aborted a request.');
   }
@@ -424,26 +406,29 @@
     });
   }
 
-  async function saveResponseStreamWithFileHandle(response, handle, onProgress) {
-    const writable = await handle.createWritable();
-    const totalBytes = Number(response.headers.get('Content-Length')) || 0;
-    const supportsStreaming = response.body && typeof response.body.getReader === 'function';
+  async function saveBlobWithFileHandle(blob, handle, onProgress) {
+    if (!(blob instanceof Blob)) {
+      throw new Error('VRM data is no longer available in memory.');
+    }
 
-    if (!supportsStreaming) {
-      const blob = await response.blob();
+    const writable = await handle.createWritable();
+    const totalBytes = blob.size || 0;
+    const stream = typeof blob.stream === 'function' ? blob.stream() : null;
+
+    if (!stream || typeof stream.getReader !== 'function') {
       await writable.write(blob);
       await writable.close();
       if (typeof onProgress === 'function') {
         onProgress({
-          loadedBytes: blob.size || totalBytes,
-          totalBytes: blob.size || totalBytes,
+          loadedBytes: totalBytes,
+          totalBytes,
           done: true
         });
       }
       return;
     }
 
-    const reader = response.body.getReader();
+    const reader = stream.getReader();
     let loadedBytes = 0;
 
     try {
@@ -470,7 +455,7 @@
       if (typeof onProgress === 'function') {
         onProgress({
           loadedBytes,
-          totalBytes: totalBytes || loadedBytes,
+          totalBytes,
           done: true
         });
       }
@@ -536,6 +521,7 @@
       state.launchPending = true;
       state.pendingAvatarKey = '';
       state.pendingFileName = 'avatar.vrm';
+      state.pendingVrmBlob = null;
       state.uploadStarted = false;
       state.uploadReady = false;
       state.verifiedForDownload = false;
@@ -647,20 +633,18 @@
     setVerificationProgress(0, 'Preparing download...', { hidden: false });
 
     try {
+      if (!(state.pendingVrmBlob instanceof Blob)) {
+        throw new Error('VRM data is no longer available on the landing page. Please create it again.');
+      }
+
       const claim = await claimDraftAvatar();
       state.finalSessionToken = claim.sessionToken || '';
       state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
       state.pendingFileName = claim.fileName || state.pendingFileName;
       state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
 
-      const signed = await fetchDownloadUrl(state.pendingAvatarKey, state.finalSessionToken);
-      const response = await fetch(signed.url, { credentials: 'include' });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch VRM file (${response.status})`);
-      }
-
       try {
-        await saveResponseStreamWithFileHandle(response, fileHandle, ({ loadedBytes, totalBytes, done }) => {
+        await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle, ({ loadedBytes, totalBytes, done }) => {
           const hasTotal = Number.isFinite(totalBytes) && totalBytes > 0;
           const percent = hasTotal
             ? Math.round((loadedBytes / totalBytes) * 100)
@@ -747,6 +731,7 @@
     if (message.type === 'ac2:upload-started') {
       state.uploadStarted = true;
       state.uploadReady = false;
+      state.pendingVrmBlob = null;
       openVerificationModal({
         resetForm: true,
         focusField: true
@@ -767,6 +752,9 @@
       state.uploadReady = true;
       state.pendingAvatarKey = message.payload && message.payload.key ? message.payload.key : '';
       state.pendingFileName = message.payload && message.payload.fileName ? message.payload.fileName : 'avatar.vrm';
+      state.pendingVrmBlob = message.payload && message.payload.fileBlob instanceof Blob
+        ? message.payload.fileBlob
+        : null;
       state.resumeToCreator = false;
       closeCloseConfirm();
       if (verificationModal.hidden) {
@@ -774,8 +762,16 @@
           resetForm: true,
           focusField: true
         });
+        if (!(state.pendingVrmBlob instanceof Blob)) {
+          setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
+          syncVerificationButtons();
+        }
       } else {
-        updateVerificationStatusForState();
+        if (!(state.pendingVrmBlob instanceof Blob)) {
+          setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
+        } else {
+          updateVerificationStatusForState();
+        }
         syncVerificationButtons();
       }
       return;
