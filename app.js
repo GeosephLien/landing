@@ -8,11 +8,6 @@
   };
 
   const createButton = document.getElementById('create-for-free-button');
-  const emailGateModal = document.getElementById('email-gate-modal');
-  const emailGateInput = document.getElementById('email-gate-input');
-  const emailGateStatus = document.getElementById('email-gate-status');
-  const emailGateContinueButton = document.getElementById('email-gate-continue-button');
-  const emailGateCloseTargets = Array.from(document.querySelectorAll('[data-close-email-gate]'));
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const closeConfirmModal = document.getElementById('close-confirm-modal');
@@ -28,9 +23,11 @@
 
   const state = {
     tenantId: '',
+    draftTenantId: '',
     ac2Ready: false,
     ac2RequestId: '',
-    sessionPayload: null,
+    draftSessionToken: '',
+    finalSessionToken: '',
     launchPending: false,
     resumeToCreator: false,
     pendingAvatarKey: '',
@@ -122,22 +119,6 @@
     }
   }
 
-  function openEmailGate() {
-    toggleModal(emailGateModal, true);
-    setStatus(emailGateStatus, '');
-    if (emailGateInput) {
-      if (!emailGateInput.value) {
-        emailGateInput.value = state.tenantId || restoreTenant();
-      }
-      window.setTimeout(() => emailGateInput.focus(), 0);
-    }
-  }
-
-  function closeEmailGate() {
-    toggleModal(emailGateModal, false);
-    setStatus(emailGateStatus, '');
-  }
-
   function openAc2Modal() {
     toggleModal(ac2Modal, true);
   }
@@ -154,29 +135,12 @@
     toggleModal(closeConfirmModal, false);
   }
 
-  function openVerificationModal() {
-    toggleModal(verificationModal, true);
-    if (verificationEmailInput) {
-      verificationEmailInput.value = state.tenantId;
-    }
-    if (verificationCodeInput) {
-      verificationCodeInput.value = '';
-      verificationCodeInput.classList.remove('input-error');
-      window.setTimeout(() => verificationCodeInput.focus(), 0);
-    }
-    state.verifiedForDownload = false;
-    syncVerificationButtons();
-  }
-
-  function closeVerificationModal() {
-    toggleModal(verificationModal, false);
-    setStatus(verificationStatus, '');
-  }
-
   function syncVerificationButtons() {
     if (verificationResendButton) {
       verificationResendButton.disabled = state.sendingCode || state.downloading;
-      verificationResendButton.textContent = state.sendingCode ? 'Sending...' : 'Resend Code';
+      verificationResendButton.textContent = state.sendingCode
+        ? 'Sending...'
+        : (state.downloadRequestId ? 'Resend Code' : 'Send Code');
     }
 
     if (verificationDownloadButton) {
@@ -185,48 +149,64 @@
     }
   }
 
-  async function registerHostOrigin(tenantId) {
-    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/register-host`, {
+  function openVerificationModal() {
+    toggleModal(verificationModal, true);
+    state.verifiedForDownload = false;
+    state.downloadRequestId = '';
+
+    if (verificationEmailInput) {
+      verificationEmailInput.value = state.tenantId || restoreTenant();
+    }
+    if (verificationCodeInput) {
+      verificationCodeInput.value = '';
+      verificationCodeInput.classList.remove('input-error');
+    }
+
+    setStatus(verificationStatus, 'Enter your email, send the verification code, then download the VRM.');
+    syncVerificationButtons();
+    window.setTimeout(() => {
+      if (verificationEmailInput) {
+        verificationEmailInput.focus();
+      }
+    }, 0);
+  }
+
+  function closeVerificationModal() {
+    toggleModal(verificationModal, false);
+    setStatus(verificationStatus, '');
+  }
+
+  async function requestDraftSession() {
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/draft-session`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        tenantId,
-        hostOrigin: window.location.origin
+        hostOrigin: window.location.origin,
+        flow: 'landing-create'
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to register landing origin (${response.status})`);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !payload.ok) {
+      throw new Error(payload && payload.message ? payload.message : 'Failed to create draft session.');
     }
 
-    return response.json();
+    return payload;
   }
 
-  async function requestSession(tenantId) {
-    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/session`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        tenantId,
-        domain: window.location.origin
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create AC2 session (${response.status})`);
+  async function requestDownloadCode(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      throw new Error('Enter a valid email address first.');
     }
 
-    return response.json();
-  }
-
-  async function requestDownloadCode() {
+    state.tenantId = normalizedEmail;
+    persistTenant(normalizedEmail);
     state.sendingCode = true;
+    state.verifiedForDownload = false;
     syncVerificationButtons();
     setStatus(verificationStatus, 'Sending verification code...');
 
@@ -238,7 +218,7 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          tenantId: state.tenantId,
+          tenantId: normalizedEmail,
           hostOrigin: window.location.origin
         })
       });
@@ -249,10 +229,7 @@
       }
 
       state.downloadRequestId = payload.requestId || '';
-      setStatus(verificationStatus, `Verification code sent to ${state.tenantId}.`, 'success');
-    } catch (error) {
-      setStatus(verificationStatus, error.message || 'Failed to send verification code.', 'error');
-      throw error;
+      setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}.`, 'success');
     } finally {
       state.sendingCode = false;
       syncVerificationButtons();
@@ -282,30 +259,38 @@
     return payload;
   }
 
-  async function saveActiveAvatar(key) {
-    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/active-avatar`, {
-      method: 'PUT',
+  async function claimDraftAvatar() {
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/claim-draft`, {
+      method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${state.sessionPayload.sessionToken}`
+        Authorization: `Bearer ${state.draftSessionToken}`
       },
-      body: JSON.stringify({ key })
+      body: JSON.stringify({
+        targetTenantId: state.tenantId,
+        hostOrigin: window.location.origin,
+        downloadRequestId: state.downloadRequestId,
+        avatarKey: state.pendingAvatarKey
+      })
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to save active avatar (${response.status})`);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !payload.ok) {
+      throw new Error(payload && payload.message ? payload.message : 'Failed to claim the draft avatar.');
     }
+
+    return payload;
   }
 
-  async function fetchDownloadUrl(key) {
+  async function fetchDownloadUrl(key, sessionToken) {
     const response = await fetch(
       `${SYSTEM_DEFAULTS.apiBase}/api/ac2/download-url?key=${encodeURIComponent(key)}&expiresIn=3600`,
       {
         method: 'GET',
         credentials: 'include',
         headers: {
-          Authorization: `Bearer ${state.sessionPayload.sessionToken}`
+          Authorization: `Bearer ${sessionToken}`
         }
       }
     );
@@ -344,18 +329,20 @@
   }
 
   function buildInitPayload() {
-    return Object.assign({}, state.sessionPayload, {
+    return {
+      tenantId: state.draftTenantId,
+      sessionToken: state.draftSessionToken,
       apiBase: SYSTEM_DEFAULTS.apiBase,
       uiMode: 'modal',
       locale: SYSTEM_DEFAULTS.locale,
       autoStart: true,
       contentMode: 'landing',
       frameStyle: FRAME_STYLE
-    });
+    };
   }
 
   function sendInit() {
-    if (!state.ac2Ready || !state.sessionPayload || !ac2Frame || !ac2Frame.contentWindow) {
+    if (!state.ac2Ready || !state.draftSessionToken || !ac2Frame || !ac2Frame.contentWindow) {
       return;
     }
 
@@ -378,34 +365,20 @@
     }, SYSTEM_DEFAULTS.ac2Origin);
   }
 
-  async function openCreatorFlow() {
-    const candidateEmail = normalizeEmail(emailGateInput ? emailGateInput.value : state.tenantId);
-    if (!isValidEmail(candidateEmail)) {
-      setStatus(emailGateStatus, 'Enter a valid email address first.', 'error');
-      if (emailGateInput) {
-        emailGateInput.focus();
-      }
-      return;
-    }
-
-    state.tenantId = candidateEmail;
-    persistTenant(candidateEmail);
-    setStatus(emailGateStatus, 'Preparing your creator...');
-    if (emailGateContinueButton) {
-      emailGateContinueButton.disabled = true;
-    }
+  async function launchDraftCreator() {
     if (createButton) {
       createButton.disabled = true;
     }
 
     try {
-      await registerHostOrigin(state.tenantId);
-      const session = await requestSession(state.tenantId);
-      state.sessionPayload = session;
+      const session = await requestDraftSession();
+      state.draftTenantId = session.draftTenantId || '';
+      state.draftSessionToken = session.sessionToken || '';
       state.ac2RequestId = `landing-host-${Date.now()}`;
       state.launchPending = true;
+      state.pendingAvatarKey = '';
+      state.pendingFileName = 'avatar.vrm';
       openAc2Modal();
-      closeEmailGate();
 
       if (ac2Frame.getAttribute('src') !== SYSTEM_DEFAULTS.ac2Url) {
         ac2Frame.setAttribute('src', SYSTEM_DEFAULTS.ac2Url);
@@ -415,11 +388,9 @@
       }
     } catch (error) {
       console.error(error);
-      setStatus(emailGateStatus, error.message || 'Unable to launch AC2.', 'error');
+      setStatus(verificationStatus, '');
+      window.alert(error.message || 'Unable to launch AC2.');
     } finally {
-      if (emailGateContinueButton) {
-        emailGateContinueButton.disabled = false;
-      }
       if (createButton) {
         createButton.disabled = false;
       }
@@ -465,10 +436,16 @@
 
     state.downloading = true;
     syncVerificationButtons();
-    setStatus(verificationStatus, 'Preparing your VRM download...');
+    setStatus(verificationStatus, 'Claiming your draft avatar...');
 
     try {
-      const signed = await fetchDownloadUrl(state.pendingAvatarKey);
+      const claim = await claimDraftAvatar();
+      state.finalSessionToken = claim.sessionToken || '';
+      state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
+      state.pendingFileName = claim.fileName || state.pendingFileName;
+      state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
+
+      const signed = await fetchDownloadUrl(state.pendingAvatarKey, state.finalSessionToken);
       const response = await fetch(signed.url, { credentials: 'include' });
       if (!response.ok) {
         throw new Error(`Failed to fetch VRM file (${response.status})`);
@@ -511,21 +488,15 @@
   }
 
   function handleCreateButtonClick() {
-    if (state.tenantId || restoreTenant()) {
-      if (emailGateInput && !emailGateInput.value) {
-        emailGateInput.value = state.tenantId || restoreTenant();
-      }
-    }
-
-    if (state.resumeToCreator && state.sessionPayload && ac2Frame.getAttribute('src')) {
+    if (state.resumeToCreator && state.draftSessionToken && ac2Frame.getAttribute('src')) {
       reopenCreator();
       return;
     }
 
-    openEmailGate();
+    launchDraftCreator();
   }
 
-  window.addEventListener('message', async (event) => {
+  window.addEventListener('message', (event) => {
     if (event.origin !== SYSTEM_DEFAULTS.ac2Origin) {
       return;
     }
@@ -555,17 +526,7 @@
       state.resumeToCreator = false;
       closeAc2Modal();
       closeCloseConfirm();
-      try {
-        if (state.pendingAvatarKey) {
-          await saveActiveAvatar(state.pendingAvatarKey);
-        }
-      } catch (error) {
-        console.warn('Unable to mark uploaded avatar as active.', error);
-      }
       openVerificationModal();
-      requestDownloadCode().catch((error) => {
-        console.error(error);
-      });
       return;
     }
 
@@ -579,7 +540,6 @@
       const detail = message.payload && (message.payload.message || message.payload.detail)
         ? `${message.payload.message || ''} ${message.payload.detail || ''}`.trim()
         : 'AC2 reported an error.';
-      setStatus(emailGateStatus, detail, 'error');
       setStatus(verificationStatus, detail, 'error');
     }
   });
@@ -587,27 +547,6 @@
   if (createButton) {
     createButton.addEventListener('click', handleCreateButtonClick);
   }
-
-  if (emailGateContinueButton) {
-    emailGateContinueButton.addEventListener('click', () => {
-      openCreatorFlow();
-    });
-  }
-
-  if (emailGateInput) {
-    emailGateInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        openCreatorFlow();
-      }
-    });
-  }
-
-  emailGateCloseTargets.forEach((target) => {
-    target.addEventListener('click', () => {
-      closeEmailGate();
-    });
-  });
 
   if (closeConfirmContinueButton) {
     closeConfirmContinueButton.addEventListener('click', () => {
@@ -622,6 +561,17 @@
     });
   }
 
+  if (verificationEmailInput) {
+    verificationEmailInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        requestDownloadCode(verificationEmailInput.value).catch((error) => {
+          setStatus(verificationStatus, error.message || 'Failed to send verification code.', 'error');
+        });
+      }
+    });
+  }
+
   if (verificationCodeInput) {
     verificationCodeInput.addEventListener('input', () => {
       handleVerificationCodeInput();
@@ -630,8 +580,8 @@
 
   if (verificationResendButton) {
     verificationResendButton.addEventListener('click', () => {
-      requestDownloadCode().catch((error) => {
-        console.error(error);
+      requestDownloadCode(verificationEmailInput ? verificationEmailInput.value : '').catch((error) => {
+        setStatus(verificationStatus, error.message || 'Failed to send verification code.', 'error');
       });
     });
   }
@@ -651,8 +601,8 @@
   const rememberedTenant = restoreTenant();
   if (rememberedTenant) {
     state.tenantId = rememberedTenant;
-    if (emailGateInput) {
-      emailGateInput.value = rememberedTenant;
+    if (verificationEmailInput) {
+      verificationEmailInput.value = rememberedTenant;
     }
   }
 })();
