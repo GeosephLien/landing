@@ -768,7 +768,6 @@
       state.pendingAvatarKey = message.payload && message.payload.key ? message.payload.key : '';
       state.pendingFileName = message.payload && message.payload.fileName ? message.payload.fileName : 'avatar.vrm';
       state.resumeToCreator = false;
-      closeAc2Modal();
       closeCloseConfirm();
       if (verificationModal.hidden) {
         openVerificationModal({
