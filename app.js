@@ -37,6 +37,10 @@
     pendingAvatarKey: '',
     pendingFileName: 'avatar.vrm',
     downloadRequestId: '',
+    verifiedForDownload: false,
+    verifiedCodeValue: '',
+    uploadStarted: false,
+    uploadReady: false,
     verifyingCode: false,
     sendingCode: false,
     downloading: false
@@ -180,6 +184,34 @@
     toggleModal(closeConfirmModal, false);
   }
 
+  function updateVerificationStatusForState() {
+    if (state.downloading || state.verifyingCode) {
+      return;
+    }
+
+    if (state.verifiedForDownload && state.uploadReady) {
+      setStatus(verificationStatus, 'Avatar ready. Download is now enabled.', 'success');
+      return;
+    }
+
+    if (state.verifiedForDownload && !state.uploadReady) {
+      setStatus(verificationStatus, 'Email verified. Your avatar is still uploading. Download will be enabled once it is ready.');
+      return;
+    }
+
+    if (state.uploadStarted && !state.uploadReady) {
+      setStatus(verificationStatus, 'Your avatar is uploading. You can complete email verification while we prepare the VRM.');
+      return;
+    }
+
+    if (state.uploadReady && !state.verifiedForDownload) {
+      setStatus(verificationStatus, 'Avatar upload complete. Finish email verification to enable download.');
+      return;
+    }
+
+    setStatus(verificationStatus, 'Enter your email, send the verification code, then download the VRM.');
+  }
+
   function syncVerificationButtons() {
     const normalizedCode = verificationCodeInput
       ? verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4)
@@ -193,30 +225,36 @@
     }
 
     if (verificationDownloadButton) {
-      verificationDownloadButton.disabled = normalizedCode.length < 4 || state.downloading || state.verifyingCode || !state.pendingAvatarKey;
+      verificationDownloadButton.disabled = !state.verifiedForDownload || !state.uploadReady || state.downloading || state.verifyingCode || !state.pendingAvatarKey;
       verificationDownloadButton.textContent = state.downloading
         ? 'Downloading...'
         : (state.verifyingCode ? 'Verifying...' : 'Download VRM');
     }
   }
 
-  function openVerificationModal() {
+  function openVerificationModal(options) {
+    const nextOptions = options || {};
     toggleModal(verificationModal, true);
-    state.downloadRequestId = '';
 
-    if (verificationEmailInput) {
-      verificationEmailInput.value = '';
-    }
-    if (verificationCodeInput) {
-      verificationCodeInput.value = '';
-      verificationCodeInput.classList.remove('input-error');
+    if (nextOptions.resetForm) {
+      state.downloadRequestId = '';
+      state.verifiedForDownload = false;
+      state.verifiedCodeValue = '';
+
+      if (verificationEmailInput) {
+        verificationEmailInput.value = '';
+      }
+      if (verificationCodeInput) {
+        verificationCodeInput.value = '';
+        verificationCodeInput.classList.remove('input-error');
+      }
     }
 
-    setStatus(verificationStatus, 'Enter your email, send the verification code, then download the VRM.');
     setVerificationProgress(0, 'Waiting to download...', { hidden: true });
+    updateVerificationStatusForState();
     syncVerificationButtons();
     window.setTimeout(() => {
-      if (verificationEmailInput) {
+      if (nextOptions.focusField && verificationEmailInput) {
         verificationEmailInput.focus();
       }
     }, 0);
@@ -259,6 +297,8 @@
     persistTenant(normalizedEmail);
     state.sendingCode = true;
     state.downloadRequestId = '';
+    state.verifiedForDownload = false;
+    state.verifiedCodeValue = '';
     if (verificationCodeInput) {
       verificationCodeInput.classList.remove('input-error');
     }
@@ -284,10 +324,14 @@
       }
 
       state.downloadRequestId = payload.requestId || '';
-      setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}.`, 'success');
+      setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}. Enter the 4-digit code to continue.`, 'success');
     } finally {
       state.sendingCode = false;
       syncVerificationButtons();
+    }
+
+    if (verificationCodeInput && verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4).length === 4) {
+      handleVerificationCodeInput();
     }
   }
 
@@ -492,6 +536,10 @@
       state.launchPending = true;
       state.pendingAvatarKey = '';
       state.pendingFileName = 'avatar.vrm';
+      state.uploadStarted = false;
+      state.uploadReady = false;
+      state.verifiedForDownload = false;
+      state.verifiedCodeValue = '';
       openAc2Modal();
 
       if (ac2Frame.getAttribute('src') !== SYSTEM_DEFAULTS.ac2Url) {
@@ -518,11 +566,13 @@
 
     const code = verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4);
     verificationCodeInput.value = code;
+    state.verifiedForDownload = false;
+    state.verifiedCodeValue = '';
     verificationCodeInput.classList.remove('input-error');
     syncVerificationButtons();
 
     if (code.length < 4) {
-      setStatus(verificationStatus, 'Enter the 4-digit verification code.');
+      updateVerificationStatusForState();
       return;
     }
 
@@ -531,7 +581,24 @@
       return;
     }
 
-    setStatus(verificationStatus, 'Verification code ready. You can download the VRM now.');
+    state.verifyingCode = true;
+    syncVerificationButtons();
+    setStatus(verificationStatus, 'Verifying code...');
+
+    try {
+      await verifyDownloadCode(code);
+      state.verifiedForDownload = true;
+      state.verifiedCodeValue = code;
+      verificationCodeInput.classList.remove('input-error');
+      updateVerificationStatusForState();
+    } catch (error) {
+      console.error(error);
+      verificationCodeInput.classList.add('input-error');
+      setStatus(verificationStatus, error.message || 'Verification failed.', 'error');
+    } finally {
+      state.verifyingCode = false;
+      syncVerificationButtons();
+    }
   }
 
   async function handleDownload() {
@@ -553,21 +620,14 @@
       return;
     }
 
-    state.verifyingCode = true;
-    syncVerificationButtons();
-    setStatus(verificationStatus, 'Verifying code...');
-
-    try {
-      await verifyDownloadCode(code);
-      verificationCodeInput.classList.remove('input-error');
-    } catch (error) {
-      console.error(error);
-      verificationCodeInput.classList.add('input-error');
-      setStatus(verificationStatus, error.message || 'Verification failed.', 'error');
+    if (!state.verifiedForDownload || state.verifiedCodeValue !== code) {
+      setStatus(verificationStatus, 'Finish email verification to enable download.', 'error');
       return;
-    } finally {
-      state.verifyingCode = false;
-      syncVerificationButtons();
+    }
+
+    if (!state.uploadReady) {
+      setStatus(verificationStatus, 'Your avatar is still uploading. Download will be enabled when it is ready.');
+      return;
     }
 
     let fileHandle = null;
@@ -684,13 +744,41 @@
       return;
     }
 
+    if (message.type === 'ac2:upload-started') {
+      state.uploadStarted = true;
+      state.uploadReady = false;
+      openVerificationModal({
+        resetForm: true,
+        focusField: true
+      });
+      return;
+    }
+
+    if (message.type === 'ac2:upload-progress') {
+      state.uploadStarted = true;
+      if (!verificationModal.hidden) {
+        updateVerificationStatusForState();
+      }
+      return;
+    }
+
     if (message.type === 'ac2:upload-complete') {
+      state.uploadStarted = true;
+      state.uploadReady = true;
       state.pendingAvatarKey = message.payload && message.payload.key ? message.payload.key : '';
       state.pendingFileName = message.payload && message.payload.fileName ? message.payload.fileName : 'avatar.vrm';
       state.resumeToCreator = false;
       closeAc2Modal();
       closeCloseConfirm();
-      openVerificationModal();
+      if (verificationModal.hidden) {
+        openVerificationModal({
+          resetForm: true,
+          focusField: true
+        });
+      } else {
+        updateVerificationStatusForState();
+        syncVerificationButtons();
+      }
       return;
     }
 
