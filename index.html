@@ -147,6 +147,15 @@
       </label>
 
       <p id="verification-status" class="flow-status" aria-live="polite"></p>
+      <div id="verification-progress" class="flow-progress" hidden aria-hidden="true">
+        <div class="flow-progress-track" aria-hidden="true">
+          <div id="verification-progress-bar" class="flow-progress-bar"></div>
+        </div>
+        <div class="flow-progress-meta" aria-live="polite">
+          <span id="verification-progress-text">0%</span>
+          <span id="verification-progress-detail">Waiting to download...</span>
+        </div>
+      </div>
 
       <div class="flow-actions">
         <button id="verification-download-button" class="hero-cta flow-primary" type="button" disabled>Download VRM</button>

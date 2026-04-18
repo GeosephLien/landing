@@ -785,6 +785,39 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: #8fffd8;
 }
 
+.flow-progress {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.flow-progress-track {
+  overflow: hidden;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.flow-progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--magenta), var(--cyan-strong));
+  box-shadow:
+    0 0 18px rgba(181, 52, 255, 0.24),
+    0 0 24px rgba(36, 185, 255, 0.18);
+  transition: width 0.2s ease;
+}
+
+.flow-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: rgba(229, 236, 255, 0.78);
+}
+
 .flow-inline-action {
   display: flex;
   margin-top: 14px;
@@ -887,6 +920,11 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
   .flow-actions {
     flex-direction: column;
+  }
+
+  .flow-progress-meta {
+    flex-direction: column;
+    gap: 6px;
   }
 
   #verification-resend-button,

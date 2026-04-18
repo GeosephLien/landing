@@ -17,6 +17,10 @@
   const verificationEmailInput = document.getElementById('verification-email-input');
   const verificationCodeInput = document.getElementById('verification-code-input');
   const verificationStatus = document.getElementById('verification-status');
+  const verificationProgress = document.getElementById('verification-progress');
+  const verificationProgressBar = document.getElementById('verification-progress-bar');
+  const verificationProgressText = document.getElementById('verification-progress-text');
+  const verificationProgressDetail = document.getElementById('verification-progress-detail');
   const verificationResendButton = document.getElementById('verification-resend-button');
   const verificationDownloadButton = document.getElementById('verification-download-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
@@ -75,6 +79,48 @@
     element.textContent = message || '';
     element.classList.toggle('is-error', tone === 'error');
     element.classList.toggle('is-success', tone === 'success');
+  }
+
+  function formatBytes(bytes) {
+    const value = Number(bytes);
+    if (!Number.isFinite(value) || value <= 0) {
+      return '0 B';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = value;
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+
+    const precision = size >= 100 || unitIndex === 0 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unitIndex]}`;
+  }
+
+  function setVerificationProgress(percent, detail, options) {
+    const nextOptions = options || {};
+    const clampedPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    const isVisible = !nextOptions.hidden;
+
+    if (verificationProgress) {
+      verificationProgress.hidden = !isVisible;
+      verificationProgress.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+    }
+
+    if (verificationProgressBar) {
+      verificationProgressBar.style.width = `${clampedPercent}%`;
+    }
+
+    if (verificationProgressText) {
+      verificationProgressText.textContent = `${clampedPercent}%`;
+    }
+
+    if (verificationProgressDetail) {
+      verificationProgressDetail.textContent = detail || 'Waiting to download...';
+    }
   }
 
   function normalizeEmail(value) {
@@ -167,6 +213,7 @@
     }
 
     setStatus(verificationStatus, 'Enter your email, send the verification code, then download the VRM.');
+    setVerificationProgress(0, 'Waiting to download...', { hidden: true });
     syncVerificationButtons();
     window.setTimeout(() => {
       if (verificationEmailInput) {
@@ -178,6 +225,7 @@
   function closeVerificationModal() {
     toggleModal(verificationModal, false);
     setStatus(verificationStatus, '');
+    setVerificationProgress(0, 'Waiting to download...', { hidden: true });
   }
 
   async function requestDraftSession() {
@@ -332,10 +380,66 @@
     });
   }
 
-  async function saveBlobWithFileHandle(blob, handle) {
+  async function saveResponseStreamWithFileHandle(response, handle, onProgress) {
     const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
+    const totalBytes = Number(response.headers.get('Content-Length')) || 0;
+    const supportsStreaming = response.body && typeof response.body.getReader === 'function';
+
+    if (!supportsStreaming) {
+      const blob = await response.blob();
+      await writable.write(blob);
+      await writable.close();
+      if (typeof onProgress === 'function') {
+        onProgress({
+          loadedBytes: blob.size || totalBytes,
+          totalBytes: blob.size || totalBytes,
+          done: true
+        });
+      }
+      return;
+    }
+
+    const reader = response.body.getReader();
+    let loadedBytes = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        if (value && value.byteLength > 0) {
+          await writable.write(value);
+          loadedBytes += value.byteLength;
+          if (typeof onProgress === 'function') {
+            onProgress({
+              loadedBytes,
+              totalBytes,
+              done: false
+            });
+          }
+        }
+      }
+
+      await writable.close();
+      if (typeof onProgress === 'function') {
+        onProgress({
+          loadedBytes,
+          totalBytes: totalBytes || loadedBytes,
+          done: true
+        });
+      }
+    } catch (error) {
+      try {
+        await writable.abort();
+      } catch (abortError) {
+        console.warn('Unable to abort partially written file.', abortError);
+      }
+      throw error;
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   function buildInitPayload() {
@@ -480,9 +584,9 @@
     state.downloading = true;
     syncVerificationButtons();
     setStatus(verificationStatus, 'Claiming your draft avatar...');
+    setVerificationProgress(0, 'Preparing download...', { hidden: false });
 
     try {
-
       const claim = await claimDraftAvatar();
       state.finalSessionToken = claim.sessionToken || '';
       state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
@@ -495,11 +599,25 @@
         throw new Error(`Failed to fetch VRM file (${response.status})`);
       }
 
-      const blob = await response.blob();
       try {
-        await saveBlobWithFileHandle(blob, fileHandle);
+        await saveResponseStreamWithFileHandle(response, fileHandle, ({ loadedBytes, totalBytes, done }) => {
+          const hasTotal = Number.isFinite(totalBytes) && totalBytes > 0;
+          const percent = hasTotal
+            ? Math.round((loadedBytes / totalBytes) * 100)
+            : (done ? 100 : 0);
+          const detail = hasTotal
+            ? `${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)}`
+            : `${formatBytes(loadedBytes)} downloaded`;
+
+          setVerificationProgress(percent, detail, { hidden: false });
+          setStatus(
+            verificationStatus,
+            done ? 'Download complete. Opening the demo scene...' : 'Downloading VRM to your device...'
+          );
+        });
       } catch (error) {
         if (isFilePickerAbortError(error)) {
+          setVerificationProgress(0, 'Download was cancelled.', { hidden: true });
           setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
           return;
         }
@@ -507,6 +625,7 @@
       }
 
       setStatus(verificationStatus, 'Download complete. Opening the demo scene...', 'success');
+      setVerificationProgress(100, 'Saved to your selected location.', { hidden: false });
       state.resumeToCreator = false;
       closeAc2Modal();
       const nextUrl = `https://geosephlien.github.io/demo/demo-scene/?tenant=${encodeURIComponent(state.tenantId)}`;
@@ -515,6 +634,7 @@
       }, 350);
     } catch (error) {
       console.error(error);
+      setVerificationProgress(0, error.message || 'VRM download failed.', { hidden: true });
       setStatus(verificationStatus, error.message || 'VRM download failed.', 'error');
     } finally {
       state.downloading = false;
