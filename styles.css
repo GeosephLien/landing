@@ -785,6 +785,15 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: #8fffd8;
 }
 
+.flow-inline-action {
+  display: flex;
+  margin-top: 14px;
+}
+
+.flow-inline-action .flow-secondary {
+  min-width: 170px;
+}
+
 .flow-actions {
   display: flex;
   flex-wrap: wrap;
@@ -841,6 +850,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     flex-direction: column;
   }
 
+  .flow-inline-action .flow-secondary,
   .flow-primary,
   .flow-secondary {
     width: 100%;

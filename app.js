@@ -33,7 +33,6 @@
     pendingAvatarKey: '',
     pendingFileName: 'avatar.vrm',
     downloadRequestId: '',
-    verifiedForDownload: false,
     verifyingCode: false,
     sendingCode: false,
     downloading: false
@@ -136,26 +135,31 @@
   }
 
   function syncVerificationButtons() {
+    const normalizedCode = verificationCodeInput
+      ? verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4)
+      : '';
+
     if (verificationResendButton) {
-      verificationResendButton.disabled = state.sendingCode || state.downloading;
+      verificationResendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode;
       verificationResendButton.textContent = state.sendingCode
         ? 'Sending...'
         : (state.downloadRequestId ? 'Resend Code' : 'Send Code');
     }
 
     if (verificationDownloadButton) {
-      verificationDownloadButton.disabled = !state.verifiedForDownload || state.downloading || !state.pendingAvatarKey;
-      verificationDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';
+      verificationDownloadButton.disabled = normalizedCode.length < 4 || state.downloading || state.verifyingCode || !state.pendingAvatarKey;
+      verificationDownloadButton.textContent = state.downloading
+        ? 'Downloading...'
+        : (state.verifyingCode ? 'Verifying...' : 'Download VRM');
     }
   }
 
   function openVerificationModal() {
     toggleModal(verificationModal, true);
-    state.verifiedForDownload = false;
     state.downloadRequestId = '';
 
     if (verificationEmailInput) {
-      verificationEmailInput.value = state.tenantId || restoreTenant();
+      verificationEmailInput.value = '';
     }
     if (verificationCodeInput) {
       verificationCodeInput.value = '';
@@ -206,7 +210,10 @@
     state.tenantId = normalizedEmail;
     persistTenant(normalizedEmail);
     state.sendingCode = true;
-    state.verifiedForDownload = false;
+    state.downloadRequestId = '';
+    if (verificationCodeInput) {
+      verificationCodeInput.classList.remove('input-error');
+    }
     syncVerificationButtons();
     setStatus(verificationStatus, 'Sending verification code...');
 
@@ -401,13 +408,12 @@
   }
 
   async function handleVerificationCodeInput() {
-    if (!verificationCodeInput || !state.downloadRequestId || state.verifyingCode) {
+    if (!verificationCodeInput) {
       return;
     }
 
     const code = verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4);
     verificationCodeInput.value = code;
-    state.verifiedForDownload = false;
     verificationCodeInput.classList.remove('input-error');
     syncVerificationButtons();
 
@@ -416,25 +422,48 @@
       return;
     }
 
+    if (!state.downloadRequestId) {
+      setStatus(verificationStatus, 'Send the verification code to your email first.');
+      return;
+    }
+
+    setStatus(verificationStatus, 'Verification code ready. You can download the VRM now.');
+  }
+
+  async function handleDownload() {
+    if (!state.pendingAvatarKey || state.downloading || !verificationCodeInput) {
+      return;
+    }
+
+    const code = verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4);
+    verificationCodeInput.value = code;
+
+    if (code.length < 4) {
+      setStatus(verificationStatus, 'Enter the 4-digit verification code.', 'error');
+      syncVerificationButtons();
+      return;
+    }
+
+    if (!state.downloadRequestId) {
+      setStatus(verificationStatus, 'Send the verification code to your email first.', 'error');
+      return;
+    }
+
     state.verifyingCode = true;
+    syncVerificationButtons();
     setStatus(verificationStatus, 'Verifying code...');
 
     try {
       await verifyDownloadCode(code);
-      state.verifiedForDownload = true;
-      setStatus(verificationStatus, 'Code verified. Download is now enabled.', 'success');
+      verificationCodeInput.classList.remove('input-error');
     } catch (error) {
+      console.error(error);
       verificationCodeInput.classList.add('input-error');
       setStatus(verificationStatus, error.message || 'Verification failed.', 'error');
+      return;
     } finally {
       state.verifyingCode = false;
       syncVerificationButtons();
-    }
-  }
-
-  async function handleDownload() {
-    if (!state.pendingAvatarKey || !state.verifiedForDownload || state.downloading) {
-      return;
     }
 
     let fileHandle = null;
@@ -453,6 +482,7 @@
     setStatus(verificationStatus, 'Claiming your draft avatar...');
 
     try {
+
       const claim = await claimDraftAvatar();
       state.finalSessionToken = claim.sessionToken || '';
       state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
@@ -615,8 +645,5 @@
   const rememberedTenant = restoreTenant();
   if (rememberedTenant) {
     state.tenantId = rememberedTenant;
-    if (verificationEmailInput) {
-      verificationEmailInput.value = rememberedTenant;
-    }
   }
 })();
