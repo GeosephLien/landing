@@ -14,6 +14,7 @@
   const closeConfirmContinueButton = document.getElementById('close-confirm-continue-button');
   const closeConfirmLeaveButton = document.getElementById('close-confirm-leave-button');
   const verificationModal = document.getElementById('verification-modal');
+  const verificationWorkflow = document.getElementById('verification-workflow');
   const verificationEmailInput = document.getElementById('verification-email-input');
   const verificationCodeInput = document.getElementById('verification-code-input');
   const verificationStatus = document.getElementById('verification-status');
@@ -23,6 +24,10 @@
   const verificationProgressDetail = document.getElementById('verification-progress-detail');
   const verificationResendButton = document.getElementById('verification-resend-button');
   const verificationDownloadButton = document.getElementById('verification-download-button');
+  const downloadCompletePanel = document.getElementById('download-complete-panel');
+  const downloadCompleteStatus = document.getElementById('download-complete-status');
+  const downloadCompleteCreateButton = document.getElementById('download-complete-create-button');
+  const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
   const state = {
@@ -32,6 +37,10 @@
     ac2RequestId: '',
     draftSessionToken: '',
     finalSessionToken: '',
+    claimInFlight: false,
+    claimPromise: null,
+    claimError: '',
+    lastClaimedTenantId: '',
     launchPending: false,
     resumeToCreator: false,
     pendingAvatarKey: '',
@@ -39,9 +48,11 @@
     pendingVrmBlob: null,
     downloadRequestId: '',
     verifiedForDownload: false,
+    authenticationPassed: false,
     verifiedCodeValue: '',
     uploadStarted: false,
     uploadReady: false,
+    verificationPanelMode: 'verify',
     verifyingCode: false,
     sendingCode: false,
     downloading: false
@@ -185,8 +196,92 @@
     toggleModal(closeConfirmModal, false);
   }
 
+  function setVerificationPanelMode(mode) {
+    state.verificationPanelMode = mode === 'complete' ? 'complete' : 'verify';
+
+    if (verificationWorkflow) {
+      verificationWorkflow.hidden = state.verificationPanelMode !== 'verify';
+    }
+
+    if (downloadCompletePanel) {
+      downloadCompletePanel.hidden = state.verificationPanelMode !== 'complete';
+    }
+  }
+
+  function setDownloadCompleteState(message, options) {
+    const nextOptions = options || {};
+    if (downloadCompleteStatus) {
+      downloadCompleteStatus.textContent = message || 'Download complete. Choose what to do next.';
+      downloadCompleteStatus.classList.toggle('is-error', nextOptions.tone === 'error');
+      downloadCompleteStatus.classList.toggle('is-success', nextOptions.tone !== 'error');
+    }
+
+    if (downloadCompletePlayButton) {
+      downloadCompletePlayButton.disabled = state.claimInFlight;
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play Avatar';
+    }
+  }
+
+  function showDownloadCompletePanel(message, options) {
+    setVerificationPanelMode('complete');
+    setVerificationProgress(0, 'Waiting to download...', { hidden: true });
+    setDownloadCompleteState(message, options);
+  }
+
+  function getDemoSceneUrl() {
+    const tenant = state.lastClaimedTenantId || state.tenantId;
+    return `https://geosephlien.github.io/demo/demo-scene/?tenant=${encodeURIComponent(tenant)}`;
+  }
+
+  function navigateToDemoScene() {
+    window.location.href = getDemoSceneUrl();
+  }
+
+  function queueClaimDraftAvatar() {
+    if (state.claimPromise) {
+      return state.claimPromise;
+    }
+
+    state.claimInFlight = true;
+    state.claimError = '';
+    setDownloadCompleteState('Finalizing your avatar for play...', { tone: 'success' });
+
+    state.claimPromise = claimDraftAvatar()
+      .then((claim) => {
+        state.finalSessionToken = claim.sessionToken || state.finalSessionToken;
+        state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
+        state.pendingFileName = claim.fileName || state.pendingFileName;
+        state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
+        state.lastClaimedTenantId = state.tenantId;
+        return claim;
+      })
+      .catch((error) => {
+        state.claimError = error && error.message ? error.message : 'Failed to finalize avatar ownership.';
+        throw error;
+      })
+      .finally(() => {
+        state.claimInFlight = false;
+        const message = state.claimError || 'Download complete. Choose what to do next.';
+        setDownloadCompleteState(message, { tone: state.claimError ? 'error' : 'success' });
+        if (state.claimError) {
+          state.claimPromise = null;
+        }
+      });
+
+    return state.claimPromise;
+  }
+
   function updateVerificationStatusForState() {
+    if (state.verificationPanelMode !== 'verify') {
+      return;
+    }
+
     if (state.downloading || state.verifyingCode) {
+      return;
+    }
+
+    if (state.authenticationPassed && state.uploadReady) {
+      setStatus(verificationStatus, 'Authentication already completed. Download is ready.', 'success');
       return;
     }
 
@@ -217,6 +312,9 @@
     const normalizedCode = verificationCodeInput
       ? verificationCodeInput.value.replace(/\D+/g, '').slice(0, 4)
       : '';
+    const canDownload = state.authenticationPassed
+      ? state.uploadReady && state.pendingAvatarKey && state.pendingVrmBlob instanceof Blob
+      : state.verifiedForDownload && state.uploadReady && state.pendingAvatarKey && state.pendingVrmBlob instanceof Blob;
 
     if (verificationResendButton) {
       verificationResendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode;
@@ -226,26 +324,34 @@
     }
 
     if (verificationDownloadButton) {
-      verificationDownloadButton.disabled = !state.verifiedForDownload || !state.uploadReady || state.downloading || state.verifyingCode || !state.pendingAvatarKey || !(state.pendingVrmBlob instanceof Blob);
+      verificationDownloadButton.disabled = !canDownload || state.downloading || state.verifyingCode;
       verificationDownloadButton.textContent = state.downloading
         ? 'Downloading...'
         : (state.verifyingCode ? 'Verifying...' : 'Download VRM');
+    }
+
+    if (downloadCompletePlayButton) {
+      downloadCompletePlayButton.disabled = state.claimInFlight;
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play Avatar';
     }
   }
 
   function openVerificationModal(options) {
     const nextOptions = options || {};
     toggleModal(verificationModal, true);
+    setVerificationPanelMode('verify');
 
     if (nextOptions.resetForm) {
       state.downloadRequestId = '';
-      state.verifiedForDownload = false;
-      state.verifiedCodeValue = '';
+      if (!state.authenticationPassed) {
+        state.verifiedForDownload = false;
+        state.verifiedCodeValue = '';
+      }
 
-      if (verificationEmailInput) {
+      if (verificationEmailInput && !state.authenticationPassed) {
         verificationEmailInput.value = '';
       }
-      if (verificationCodeInput) {
+      if (verificationCodeInput && !state.authenticationPassed) {
         verificationCodeInput.value = '';
         verificationCodeInput.classList.remove('input-error');
       }
@@ -508,6 +614,18 @@
     }, SYSTEM_DEFAULTS.ac2Origin);
   }
 
+  function requestCreatorReset() {
+    if (!ac2Frame || !ac2Frame.contentWindow) {
+      return;
+    }
+
+    ac2Frame.contentWindow.postMessage({
+      type: 'ac2:reset',
+      requestId: state.ac2RequestId,
+      payload: {}
+    }, SYSTEM_DEFAULTS.ac2Origin);
+  }
+
   async function launchDraftCreator() {
     if (createButton) {
       createButton.disabled = true;
@@ -522,10 +640,14 @@
       state.pendingAvatarKey = '';
       state.pendingFileName = 'avatar.vrm';
       state.pendingVrmBlob = null;
+      state.claimInFlight = false;
+      state.claimPromise = null;
+      state.claimError = '';
       state.uploadStarted = false;
       state.uploadReady = false;
-      state.verifiedForDownload = false;
-      state.verifiedCodeValue = '';
+      state.verifiedForDownload = state.authenticationPassed;
+      state.verifiedCodeValue = state.authenticationPassed ? state.verifiedCodeValue : '';
+      setVerificationPanelMode('verify');
       openAc2Modal();
 
       if (ac2Frame.getAttribute('src') !== SYSTEM_DEFAULTS.ac2Url) {
@@ -573,6 +695,7 @@
 
     try {
       await verifyDownloadCode(code);
+      state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.verifiedCodeValue = code;
       verificationCodeInput.classList.remove('input-error');
@@ -606,7 +729,7 @@
       return;
     }
 
-    if (!state.verifiedForDownload || state.verifiedCodeValue !== code) {
+    if (!state.authenticationPassed && (!state.verifiedForDownload || state.verifiedCodeValue !== code)) {
       setStatus(verificationStatus, 'Finish email verification to enable download.', 'error');
       return;
     }
@@ -629,7 +752,7 @@
 
     state.downloading = true;
     syncVerificationButtons();
-    setStatus(verificationStatus, 'Claiming your draft avatar...');
+    setStatus(verificationStatus, 'Preparing download...');
     setVerificationProgress(0, 'Preparing download...', { hidden: false });
 
     try {
@@ -637,11 +760,7 @@
         throw new Error('VRM data is no longer available on the landing page. Please create it again.');
       }
 
-      const claim = await claimDraftAvatar();
-      state.finalSessionToken = claim.sessionToken || '';
-      state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
-      state.pendingFileName = claim.fileName || state.pendingFileName;
-      state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
+      const claimPromise = queueClaimDraftAvatar();
 
       try {
         await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle, ({ loadedBytes, totalBytes, done }) => {
@@ -656,7 +775,7 @@
           setVerificationProgress(percent, detail, { hidden: false });
           setStatus(
             verificationStatus,
-            done ? 'Download complete. Opening the demo scene...' : 'Downloading VRM to your device...'
+            done ? 'Download complete.' : 'Downloading VRM to your device...'
           );
         });
       } catch (error) {
@@ -668,14 +787,15 @@
         throw error;
       }
 
-      setStatus(verificationStatus, 'Download complete. Opening the demo scene...', 'success');
+      state.authenticationPassed = true;
+      state.verifiedForDownload = true;
+      setStatus(verificationStatus, 'Download complete.', 'success');
       setVerificationProgress(100, 'Saved to your selected location.', { hidden: false });
       state.resumeToCreator = false;
-      closeAc2Modal();
-      const nextUrl = `https://geosephlien.github.io/demo/demo-scene/?tenant=${encodeURIComponent(state.tenantId)}`;
-      window.setTimeout(() => {
-        window.location.href = nextUrl;
-      }, 350);
+      showDownloadCompletePanel('Download complete. Choose what to do next.', { tone: 'success' });
+      claimPromise.catch((error) => {
+        console.error(error);
+      });
     } catch (error) {
       console.error(error);
       setVerificationProgress(0, error.message || 'VRM download failed.', { hidden: true });
@@ -732,10 +852,12 @@
       state.uploadStarted = true;
       state.uploadReady = false;
       state.pendingVrmBlob = null;
-      openVerificationModal({
-        resetForm: true,
-        focusField: true
-      });
+      if (!state.authenticationPassed) {
+        openVerificationModal({
+          resetForm: true,
+          focusField: true
+        });
+      }
       return;
     }
 
@@ -759,12 +881,14 @@
       closeCloseConfirm();
       if (verificationModal.hidden) {
         openVerificationModal({
-          resetForm: true,
-          focusField: true
+          resetForm: !state.authenticationPassed,
+          focusField: !state.authenticationPassed
         });
         if (!(state.pendingVrmBlob instanceof Blob)) {
           setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
           syncVerificationButtons();
+        } else if (state.authenticationPassed) {
+          setStatus(verificationStatus, 'Authentication already completed. Click Download VRM to choose a save location.', 'success');
         }
       } else {
         if (!(state.pendingVrmBlob instanceof Blob)) {
@@ -836,6 +960,38 @@
   if (verificationDownloadButton) {
     verificationDownloadButton.addEventListener('click', () => {
       handleDownload();
+    });
+  }
+
+  if (downloadCompleteCreateButton) {
+    downloadCompleteCreateButton.addEventListener('click', () => {
+      state.claimPromise = null;
+      state.claimInFlight = false;
+      state.claimError = '';
+      state.pendingAvatarKey = '';
+      state.pendingFileName = 'avatar.vrm';
+      state.pendingVrmBlob = null;
+      state.uploadStarted = false;
+      state.uploadReady = false;
+      setVerificationPanelMode('verify');
+      setVerificationProgress(0, 'Waiting to download...', { hidden: true });
+      openAc2Modal();
+      requestCreatorReset();
+      closeVerificationModal();
+    });
+  }
+
+  if (downloadCompletePlayButton) {
+    downloadCompletePlayButton.addEventListener('click', async () => {
+      try {
+        await queueClaimDraftAvatar();
+        closeVerificationModal();
+        closeAc2Modal();
+        navigateToDemoScene();
+      } catch (error) {
+        console.error(error);
+        setDownloadCompleteState(error.message || 'Failed to prepare avatar for play.', { tone: 'error' });
+      }
     });
   }
 

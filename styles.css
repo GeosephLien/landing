@@ -818,6 +818,11 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: rgba(229, 236, 255, 0.78);
 }
 
+#download-complete-panel[hidden],
+#verification-workflow[hidden] {
+  display: none;
+}
+
 .flow-inline-action {
   display: flex;
   margin-top: 14px;

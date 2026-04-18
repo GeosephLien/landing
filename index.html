@@ -125,40 +125,50 @@
         </p>
       </div>
 
-      <label class="flow-field">
-        <span>Email</span>
-        <input id="verification-email-input" type="email" autocomplete="email" placeholder="openme@htc.com">
-      </label>
+      <div id="verification-workflow">
+        <label class="flow-field">
+          <span>Email</span>
+          <input id="verification-email-input" type="email" autocomplete="email" placeholder="openme@htc.com">
+        </label>
 
-      <div class="flow-inline-action">
-        <button id="verification-resend-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
+        <div class="flow-inline-action">
+          <button id="verification-resend-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
+        </div>
+
+        <label class="flow-field">
+          <span>Verification Code</span>
+          <input
+            id="verification-code-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="4"
+            placeholder="0000"
+          >
+        </label>
+
+        <p id="verification-status" class="flow-status" aria-live="polite"></p>
+        <div id="verification-progress" class="flow-progress" hidden aria-hidden="true">
+          <div class="flow-progress-track" aria-hidden="true">
+            <div id="verification-progress-bar" class="flow-progress-bar"></div>
+          </div>
+          <div class="flow-progress-meta" aria-live="polite">
+            <span id="verification-progress-text">0%</span>
+            <span id="verification-progress-detail">Waiting to download...</span>
+          </div>
+        </div>
+
+        <div class="flow-actions">
+          <button id="verification-download-button" class="hero-cta flow-primary" type="button" disabled>Download VRM</button>
+        </div>
       </div>
 
-      <label class="flow-field">
-        <span>Verification Code</span>
-        <input
-          id="verification-code-input"
-          type="text"
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          maxlength="4"
-          placeholder="0000"
-        >
-      </label>
-
-      <p id="verification-status" class="flow-status" aria-live="polite"></p>
-      <div id="verification-progress" class="flow-progress" hidden aria-hidden="true">
-        <div class="flow-progress-track" aria-hidden="true">
-          <div id="verification-progress-bar" class="flow-progress-bar"></div>
+      <div id="download-complete-panel" hidden>
+        <p id="download-complete-status" class="flow-status is-success">Download complete. Choose what to do next.</p>
+        <div class="flow-actions">
+          <button id="download-complete-create-button" class="hero-secondary-cta flow-secondary" type="button">Create New</button>
+          <button id="download-complete-play-button" class="hero-cta flow-primary" type="button">Play Avatar</button>
         </div>
-        <div class="flow-progress-meta" aria-live="polite">
-          <span id="verification-progress-text">0%</span>
-          <span id="verification-progress-detail">Waiting to download...</span>
-        </div>
-      </div>
-
-      <div class="flow-actions">
-        <button id="verification-download-button" class="hero-cta flow-primary" type="button" disabled>Download VRM</button>
       </div>
     </section>
   </div>
