@@ -31,9 +31,12 @@
   const state = {
     tenantId: '',
     draftTenantId: '',
+    authenticatedTenantKey: '',
     ac2Ready: false,
     ac2RequestId: '',
+    activeAc2Mode: 'draft',
     draftSessionToken: '',
+    authenticatedSessionToken: '',
     finalSessionToken: '',
     claimInFlight: false,
     claimPromise: null,
@@ -158,6 +161,10 @@
 
     userPillText.textContent = `Hi, ${normalized}`;
     userPill.hidden = false;
+  }
+
+  function hasAuthenticatedUser() {
+    return Boolean(normalizeEmail(state.currentUserEmail || state.tenantId));
   }
 
   function isValidEmail(value) {
@@ -405,6 +412,32 @@
     return payload;
   }
 
+  async function requestAuthenticatedSession(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      throw new Error('Enter a valid email address first.');
+    }
+
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/session`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tenantId: normalizedEmail,
+        hostOrigin: window.location.origin
+      })
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !payload.sessionToken) {
+      throw new Error(payload && payload.message ? payload.message : 'Failed to create an authenticated AC2 session.');
+    }
+
+    return payload;
+  }
+
   async function fetchCurrentUser() {
     const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/me`, {
       method: 'GET',
@@ -425,6 +458,7 @@
       const restoredEmail = normalizeEmail(payload && payload.email);
       if (restoredEmail) {
         state.tenantId = restoredEmail;
+        state.authenticatedTenantKey = payload && payload.tenantId ? String(payload.tenantId) : '';
         persistTenant(restoredEmail);
         renderUserPill(restoredEmail);
         return;
@@ -620,6 +654,19 @@
   }
 
   function buildInitPayload() {
+    if (state.activeAc2Mode === 'viewer') {
+      return {
+        tenantId: state.authenticatedTenantKey || state.currentUserEmail || state.tenantId,
+        sessionToken: state.authenticatedSessionToken,
+        apiBase: SYSTEM_DEFAULTS.apiBase,
+        uiMode: 'modal',
+        locale: SYSTEM_DEFAULTS.locale,
+        autoStart: false,
+        contentMode: 'viewer',
+        frameStyle: FRAME_STYLE
+      };
+    }
+
     return {
       tenantId: state.draftTenantId,
       sessionToken: state.draftSessionToken,
@@ -633,7 +680,11 @@
   }
 
   function sendInit() {
-    if (!state.ac2Ready || !state.draftSessionToken || !ac2Frame || !ac2Frame.contentWindow) {
+    const sessionToken = state.activeAc2Mode === 'viewer'
+      ? state.authenticatedSessionToken
+      : state.draftSessionToken;
+
+    if (!state.ac2Ready || !sessionToken || !ac2Frame || !ac2Frame.contentWindow) {
       return;
     }
 
@@ -663,6 +714,7 @@
 
     try {
       const session = await requestDraftSession();
+      state.activeAc2Mode = 'draft';
       state.draftTenantId = session.draftTenantId || '';
       state.draftSessionToken = session.sessionToken || '';
       state.ac2RequestId = `landing-host-${Date.now()}`;
@@ -690,6 +742,36 @@
       console.error(error);
       setStatus(verificationStatus, '');
       window.alert(error.message || 'Unable to launch AC2.');
+    } finally {
+      if (createButton) {
+        createButton.disabled = false;
+      }
+    }
+  }
+
+  async function launchAuthenticatedViewer() {
+    if (createButton) {
+      createButton.disabled = true;
+    }
+
+    try {
+      const session = await requestAuthenticatedSession(state.currentUserEmail || state.tenantId);
+      state.activeAc2Mode = 'viewer';
+      state.authenticatedSessionToken = session.sessionToken || '';
+      state.authenticatedTenantKey = session.tenantId || state.authenticatedTenantKey;
+      state.ac2RequestId = `landing-viewer-${Date.now()}`;
+      state.launchPending = true;
+      state.resumeToCreator = false;
+      openAc2Modal();
+
+      if (ac2Frame.getAttribute('src') !== SYSTEM_DEFAULTS.ac2Url) {
+        ac2Frame.setAttribute('src', SYSTEM_DEFAULTS.ac2Url);
+      } else if (state.ac2Ready) {
+        sendInit();
+      }
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || 'Unable to launch AC2 viewer.');
     } finally {
       if (createButton) {
         createButton.disabled = false;
@@ -728,6 +810,7 @@
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.verifiedCodeValue = code;
+      renderUserPill(state.tenantId);
       verificationCodeInput.classList.remove('input-error');
       updateVerificationStatusForState();
     } catch (error) {
@@ -840,13 +923,20 @@
     openAc2Modal();
     if (state.ac2Ready) {
       sendInit();
-      requestCreatorStart();
+      if (state.activeAc2Mode === 'draft') {
+        requestCreatorStart();
+      }
     }
   }
 
   function handleCreateButtonClick() {
-    if (state.resumeToCreator && state.draftSessionToken && ac2Frame.getAttribute('src')) {
+    if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
       reopenCreator();
+      return;
+    }
+
+    if (hasAuthenticatedUser()) {
+      launchAuthenticatedViewer();
       return;
     }
 
@@ -873,11 +963,16 @@
 
     if (message.type === 'ac2:init-ack') {
       state.launchPending = false;
-      requestCreatorStart();
+      if (state.activeAc2Mode === 'draft') {
+        requestCreatorStart();
+      }
       return;
     }
 
     if (message.type === 'ac2:upload-started') {
+      if (state.activeAc2Mode === 'viewer') {
+        return;
+      }
       state.uploadStarted = true;
       state.uploadReady = false;
       state.pendingVrmBlob = null;
@@ -891,6 +986,9 @@
     }
 
     if (message.type === 'ac2:upload-progress') {
+      if (state.activeAc2Mode === 'viewer') {
+        return;
+      }
       state.uploadStarted = true;
       if (!verificationModal.hidden) {
         updateVerificationStatusForState();
@@ -899,6 +997,10 @@
     }
 
     if (message.type === 'ac2:upload-complete') {
+      if (state.activeAc2Mode === 'viewer') {
+        state.resumeToCreator = false;
+        return;
+      }
       state.uploadStarted = true;
       state.uploadReady = true;
       state.pendingAvatarKey = message.payload && message.payload.key ? message.payload.key : '';
