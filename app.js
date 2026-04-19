@@ -26,7 +26,6 @@
   const verificationDownloadButton = document.getElementById('verification-download-button');
   const downloadCompletePanel = document.getElementById('download-complete-panel');
   const downloadCompleteStatus = document.getElementById('download-complete-status');
-  const downloadCompleteCreateButton = document.getElementById('download-complete-create-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
@@ -211,7 +210,7 @@
   function setDownloadCompleteState(message, options) {
     const nextOptions = options || {};
     if (downloadCompleteStatus) {
-      downloadCompleteStatus.textContent = message || 'Download complete. Choose what to do next.';
+      downloadCompleteStatus.textContent = message || 'Download complete. Play your avatar when ready.';
       downloadCompleteStatus.classList.toggle('is-error', nextOptions.tone === 'error');
       downloadCompleteStatus.classList.toggle('is-success', nextOptions.tone !== 'error');
     }
@@ -255,13 +254,13 @@
         state.lastClaimedTenantId = state.tenantId;
         return claim;
       })
-      .catch((error) => {
-        state.claimError = error && error.message ? error.message : 'Failed to finalize avatar ownership.';
-        throw error;
-      })
+        .catch((error) => {
+          state.claimError = error && error.message ? error.message : 'Failed to finalize avatar ownership.';
+          throw error;
+        })
       .finally(() => {
         state.claimInFlight = false;
-        const message = state.claimError || 'Download complete. Choose what to do next.';
+        const message = state.claimError || 'Download complete. Play your avatar when ready.';
         setDownloadCompleteState(message, { tone: state.claimError ? 'error' : 'success' });
         if (state.claimError) {
           state.claimPromise = null;
@@ -614,18 +613,6 @@
     }, SYSTEM_DEFAULTS.ac2Origin);
   }
 
-  function requestCreatorReset() {
-    if (!ac2Frame || !ac2Frame.contentWindow) {
-      return;
-    }
-
-    ac2Frame.contentWindow.postMessage({
-      type: 'ac2:reset',
-      requestId: state.ac2RequestId,
-      payload: {}
-    }, SYSTEM_DEFAULTS.ac2Origin);
-  }
-
   async function launchDraftCreator() {
     if (createButton) {
       createButton.disabled = true;
@@ -792,7 +779,7 @@
       setStatus(verificationStatus, 'Download complete.', 'success');
       setVerificationProgress(100, 'Saved to your selected location.', { hidden: false });
       state.resumeToCreator = false;
-      showDownloadCompletePanel('Download complete. Choose what to do next.', { tone: 'success' });
+      showDownloadCompletePanel('Download complete. Play your avatar when ready.', { tone: 'success' });
       claimPromise.catch((error) => {
         console.error(error);
       });
@@ -960,24 +947,6 @@
   if (verificationDownloadButton) {
     verificationDownloadButton.addEventListener('click', () => {
       handleDownload();
-    });
-  }
-
-  if (downloadCompleteCreateButton) {
-    downloadCompleteCreateButton.addEventListener('click', () => {
-      state.claimPromise = null;
-      state.claimInFlight = false;
-      state.claimError = '';
-      state.pendingAvatarKey = '';
-      state.pendingFileName = 'avatar.vrm';
-      state.pendingVrmBlob = null;
-      state.uploadStarted = false;
-      state.uploadReady = false;
-      setVerificationPanelMode('verify');
-      setVerificationProgress(0, 'Waiting to download...', { hidden: true });
-      openAc2Modal();
-      requestCreatorReset();
-      closeVerificationModal();
     });
   }
 
