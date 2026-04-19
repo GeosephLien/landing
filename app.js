@@ -10,9 +10,6 @@
   const createButton = document.getElementById('create-for-free-button');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
-  const closeConfirmModal = document.getElementById('close-confirm-modal');
-  const closeConfirmContinueButton = document.getElementById('close-confirm-continue-button');
-  const closeConfirmLeaveButton = document.getElementById('close-confirm-leave-button');
   const verificationModal = document.getElementById('verification-modal');
   const verificationWorkflow = document.getElementById('verification-workflow');
   const verificationEmailInput = document.getElementById('verification-email-input');
@@ -185,14 +182,6 @@
 
   function closeAc2Modal() {
     toggleModal(ac2Modal, false);
-  }
-
-  function openCloseConfirm() {
-    toggleModal(closeConfirmModal, true);
-  }
-
-  function closeCloseConfirm() {
-    toggleModal(closeConfirmModal, false);
   }
 
   function setVerificationPanelMode(mode) {
@@ -794,7 +783,6 @@
   }
 
   function reopenCreator() {
-    closeCloseConfirm();
     openAc2Modal();
     if (state.ac2Ready) {
       sendInit();
@@ -865,7 +853,6 @@
         ? message.payload.fileBlob
         : null;
       state.resumeToCreator = false;
-      closeCloseConfirm();
       if (verificationModal.hidden) {
         openVerificationModal({
           resetForm: !state.authenticationPassed,
@@ -890,7 +877,7 @@
 
     if (message.type === 'ac2:close-request') {
       state.resumeToCreator = true;
-      openCloseConfirm();
+      closeAc2Modal();
       return;
     }
 
@@ -904,19 +891,6 @@
 
   if (createButton) {
     createButton.addEventListener('click', handleCreateButtonClick);
-  }
-
-  if (closeConfirmContinueButton) {
-    closeConfirmContinueButton.addEventListener('click', () => {
-      closeCloseConfirm();
-    });
-  }
-
-  if (closeConfirmLeaveButton) {
-    closeConfirmLeaveButton.addEventListener('click', () => {
-      closeCloseConfirm();
-      closeAc2Modal();
-    });
   }
 
   if (verificationEmailInput) {
