@@ -8,6 +8,8 @@
   };
 
   const createButton = document.getElementById('create-for-free-button');
+  const userPill = document.getElementById('landing-user-pill');
+  const userPillText = document.getElementById('landing-user-pill-text');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
@@ -51,7 +53,8 @@
     verificationPanelMode: 'verify',
     verifyingCode: false,
     sendingCode: false,
-    downloading: false
+    downloading: false,
+    currentUserEmail: ''
   };
 
   const FRAME_STYLE = {
@@ -137,6 +140,24 @@
 
   function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase();
+  }
+
+  function renderUserPill(email) {
+    const normalized = normalizeEmail(email);
+    state.currentUserEmail = normalized;
+
+    if (!userPill || !userPillText) {
+      return;
+    }
+
+    if (!normalized) {
+      userPill.hidden = true;
+      userPillText.textContent = 'Hi,';
+      return;
+    }
+
+    userPillText.textContent = `Hi, ${normalized}`;
+    userPill.hidden = false;
   }
 
   function isValidEmail(value) {
@@ -241,6 +262,8 @@
         state.pendingFileName = claim.fileName || state.pendingFileName;
         state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
         state.lastClaimedTenantId = state.tenantId;
+        persistTenant(state.tenantId);
+        renderUserPill(state.tenantId);
         return claim;
       })
         .catch((error) => {
@@ -380,6 +403,37 @@
     }
 
     return payload;
+  }
+
+  async function fetchCurrentUser() {
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/me`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !payload.ok) {
+      throw new Error(payload && payload.message ? payload.message : 'Unable to restore the current user.');
+    }
+
+    return payload;
+  }
+
+  async function bootstrapCurrentUser() {
+    try {
+      const payload = await fetchCurrentUser();
+      const restoredEmail = normalizeEmail(payload && payload.email);
+      if (restoredEmail) {
+        state.tenantId = restoredEmail;
+        persistTenant(restoredEmail);
+        renderUserPill(restoredEmail);
+        return;
+      }
+    } catch (error) {
+      console.debug('No persisted landing user session.', error);
+    }
+
+    renderUserPill('');
   }
 
   async function requestDownloadCode(email) {
@@ -948,4 +1002,6 @@
   if (rememberedTenant) {
     state.tenantId = rememberedTenant;
   }
+
+  bootstrapCurrentUser();
 })();
