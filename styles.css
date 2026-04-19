@@ -860,14 +860,16 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   width: 100%;
 }
 
-#verification-download-button:disabled {
+#verification-download-button:disabled,
+#download-complete-play-button:disabled {
   cursor: not-allowed;
   opacity: 0.54;
   filter: grayscale(1);
   box-shadow: none;
 }
 
-#verification-download-button:disabled::before {
+#verification-download-button:disabled::before,
+#download-complete-play-button:disabled::before {
   opacity: 0.16;
 }
 
