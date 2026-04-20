@@ -212,7 +212,7 @@
     }
 
     if (forgetMeButton) {
-      forgetMeButton.hidden = sceneVisible || shouldShowDraftSaveAction();
+      forgetMeButton.hidden = !hasAuthenticatedUser();
     }
   }
 
