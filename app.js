@@ -10,6 +10,7 @@
   const createButton = document.getElementById('create-for-free-button');
   const userPill = document.getElementById('landing-user-pill');
   const userPillText = document.getElementById('landing-user-pill-text');
+  const forgetMeButton = document.getElementById('landing-forget-me-button');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
@@ -57,7 +58,8 @@
     verifyingCode: false,
     sendingCode: false,
     downloading: false,
-    currentUserEmail: ''
+    currentUserEmail: '',
+    forgettingUser: false
   };
 
   const FRAME_STYLE = {
@@ -156,11 +158,17 @@
     if (!normalized) {
       userPill.hidden = true;
       userPillText.textContent = 'Hi,';
+      if (forgetMeButton) {
+        forgetMeButton.disabled = false;
+      }
       return;
     }
 
     userPillText.textContent = `Hi, ${normalized}`;
     userPill.hidden = false;
+    if (forgetMeButton) {
+      forgetMeButton.disabled = state.forgettingUser;
+    }
   }
 
   function hasAuthenticatedUser() {
@@ -191,6 +199,29 @@
       console.warn('Unable to restore tenant email.', error);
       return '';
     }
+  }
+
+  function clearPersistedTenant() {
+    try {
+      window.localStorage.removeItem(SYSTEM_DEFAULTS.storageTenantKey);
+    } catch (error) {
+      console.warn('Unable to clear tenant email.', error);
+    }
+  }
+
+  function resetAuthenticatedLandingState() {
+    state.tenantId = '';
+    state.authenticatedTenantKey = '';
+    state.authenticatedSessionToken = '';
+    state.finalSessionToken = '';
+    state.currentUserEmail = '';
+    state.activeAc2Mode = 'draft';
+    state.resumeToCreator = false;
+    state.authenticationPassed = false;
+    state.verifiedForDownload = false;
+    state.verifiedCodeValue = '';
+    clearPersistedTenant();
+    renderUserPill('');
   }
 
   function toggleModal(element, isOpen) {
@@ -467,6 +498,47 @@
       console.debug('No persisted landing user session.', error);
     }
 
+    renderUserPill('');
+  }
+
+  async function logoutCurrentUser() {
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || !payload.ok) {
+      throw new Error(payload && payload.message ? payload.message : 'Unable to forget this browser.');
+    }
+
+    return payload;
+  }
+
+  async function handleForgetMe() {
+    if (state.forgettingUser) {
+      return;
+    }
+
+    state.forgettingUser = true;
+    if (forgetMeButton) {
+      forgetMeButton.disabled = true;
+    }
+
+    try {
+      await logoutCurrentUser();
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || 'Unable to forget this browser.');
+      state.forgettingUser = false;
+      renderUserPill(state.currentUserEmail);
+      return;
+    }
+
+    resetAuthenticatedLandingState();
+    closeVerificationModal();
+    closeAc2Modal();
+    state.forgettingUser = false;
     renderUserPill('');
   }
 
@@ -1047,6 +1119,12 @@
 
   if (createButton) {
     createButton.addEventListener('click', handleCreateButtonClick);
+  }
+
+  if (forgetMeButton) {
+    forgetMeButton.addEventListener('click', () => {
+      handleForgetMe();
+    });
   }
 
   if (verificationEmailInput) {

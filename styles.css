@@ -70,6 +70,7 @@ img {
   z-index: 3;
   display: inline-flex;
   align-items: center;
+  gap: 12px;
   min-height: 44px;
   max-width: min(calc(100vw - 48px), 420px);
   padding: 0 18px;
@@ -86,9 +87,37 @@ img {
 }
 
 .landing-user-pill span {
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.landing-user-pill-action {
+  appearance: none;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(244, 247, 255, 0.92);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.landing-user-pill-action:hover,
+.landing-user-pill-action:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  outline: none;
+}
+
+.landing-user-pill-action:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .page::before,
@@ -587,7 +616,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     right: 16px;
     left: 16px;
     max-width: none;
-    justify-content: center;
+    justify-content: space-between;
   }
 
   .hero-shell {
