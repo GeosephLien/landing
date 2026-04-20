@@ -126,6 +126,26 @@ img {
   outline: none;
 }
 
+.landing-user-pill-action-primary {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #2764ff 0%, #675bff 58%, #9165ff 100%);
+  box-shadow: 0 18px 40px rgba(39, 100, 255, 0.26);
+}
+
+.landing-user-pill-action-primary:hover {
+  filter: brightness(1.06);
+  background: linear-gradient(135deg, #2764ff 0%, #675bff 58%, #9165ff 100%);
+  border-color: transparent;
+}
+
+.landing-user-pill-action-primary:focus-visible {
+  outline: 3px solid rgba(70, 113, 255, 0.3);
+  outline-offset: 4px;
+  background: linear-gradient(135deg, #2764ff 0%, #675bff 58%, #9165ff 100%);
+  border-color: transparent;
+}
+
 .landing-user-pill-action:disabled {
   cursor: wait;
   opacity: 0.6;
