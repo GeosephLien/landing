@@ -318,6 +318,10 @@
     if (element.hasAttribute('aria-hidden')) {
       element.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     }
+
+    if (element === verificationModal && embeddedVrmScene && typeof embeddedVrmScene.setInteractionEnabled === 'function') {
+      embeddedVrmScene.setInteractionEnabled(!isOpen);
+    }
   }
 
   function openAc2Modal() {
