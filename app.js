@@ -381,7 +381,7 @@
       return;
     }
 
-    if (state.downloading || state.verifyingCode) {
+    if (state.downloading || state.verifyingCode || state.claimInFlight) {
       return;
     }
 
@@ -420,18 +420,20 @@
     );
 
     if (verificationSendButton) {
-      verificationSendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode;
+      verificationSendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
       verificationSendButton.textContent = state.sendingCode ? 'Sending...' : 'Send Code';
     }
 
     if (verificationResendButton) {
-      verificationResendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode;
+      verificationResendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
       verificationResendButton.textContent = state.sendingCode ? 'Sending...' : 'Resend Code';
     }
 
     if (verificationDownloadButton) {
-      verificationDownloadButton.disabled = !canVerifyAndDownload || state.downloading || state.verifyingCode;
-      verificationDownloadButton.textContent = state.verifyingCode ? 'Verifying...' : 'Confirm';
+      verificationDownloadButton.disabled = !canVerifyAndDownload || state.downloading || state.verifyingCode || state.claimInFlight;
+      verificationDownloadButton.textContent = state.claimInFlight
+        ? 'Syncing...'
+        : (state.verifyingCode ? 'Verifying...' : 'Confirm');
     }
 
     if (downloadCompleteDownloadButton) {
@@ -973,6 +975,9 @@
       state.verifiedCodeValue = code;
       renderUserPill(state.tenantId);
       verificationCodeInput.classList.remove('input-error');
+      setStatus(verificationStatus, 'Verification succeeded. Syncing your avatar now. Do not close or refresh the browser.', 'success');
+      syncVerificationButtons();
+      await queueClaimDraftAvatar();
       state.resumeToCreator = false;
       setStatus(verificationStatus, 'Your avatar is verified and ready.', 'success');
       showDownloadCompletePanel('Your avatar is verified and ready.', { tone: 'success' });
@@ -1017,8 +1022,6 @@
         throw new Error('VRM data is no longer available on the landing page. Please create it again.');
       }
 
-      const claimPromise = queueClaimDraftAvatar();
-
       try {
         await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle);
       } catch (error) {
@@ -1034,9 +1037,6 @@
       state.verifiedForDownload = true;
       setStatus(verificationStatus, 'Download complete.', 'success');
       setDownloadCompleteState('Download complete. Play it when ready.', { tone: 'success' });
-      claimPromise.catch((error) => {
-        console.error(error);
-      });
     } catch (error) {
       console.error(error);
       setStatus(verificationStatus, error.message || 'VRM download failed.', 'error');
@@ -1222,13 +1222,6 @@
 
   if (downloadCompletePlayButton) {
     downloadCompletePlayButton.addEventListener('click', async () => {
-      try {
-        await queueClaimDraftAvatar();
-      } catch (error) {
-        console.error(error);
-        setDownloadCompleteState(getClaimFailureMessage(error), { tone: 'error' });
-      }
-
       closeVerificationModal();
       closeAc2Modal();
       navigateToDemoScene();
