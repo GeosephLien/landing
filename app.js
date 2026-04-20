@@ -66,6 +66,7 @@
     verifyingCode: false,
     sendingCode: false,
     downloading: false,
+    downloadCompletedOnce: false,
     currentUserEmail: '',
     forgettingUser: false
   };
@@ -304,12 +305,16 @@
   function setDownloadCompleteState(message, options) {
     if (downloadCompleteDownloadButton) {
       downloadCompleteDownloadButton.disabled = state.downloading;
-      downloadCompleteDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';
+      downloadCompleteDownloadButton.textContent = state.downloading
+        ? 'Downloading...'
+        : (state.downloadCompletedOnce ? 'Download VRM Again' : 'Download VRM');
+      downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
+      downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
 
@@ -438,12 +443,16 @@
 
     if (downloadCompleteDownloadButton) {
       downloadCompleteDownloadButton.disabled = state.downloading;
-      downloadCompleteDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';
+      downloadCompleteDownloadButton.textContent = state.downloading
+        ? 'Downloading...'
+        : (state.downloadCompletedOnce ? 'Download VRM Again' : 'Download VRM');
+      downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
+      downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
 
@@ -457,6 +466,7 @@
       state.verifiedForDownload = false;
       state.verifiedCodeValue = '';
       state.authenticationPassed = false;
+      state.downloadCompletedOnce = false;
       setVerificationStep('email');
 
       if (verificationEmailInput) {
@@ -878,6 +888,7 @@
       state.claimError = '';
       state.uploadStarted = false;
       state.uploadReady = false;
+      state.downloadCompletedOnce = false;
       state.verifiedForDownload = state.authenticationPassed;
       state.verifiedCodeValue = state.authenticationPassed ? state.verifiedCodeValue : '';
       setVerificationPanelMode('verify');
@@ -1035,6 +1046,7 @@
 
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
+      state.downloadCompletedOnce = true;
       setStatus(verificationStatus, 'Download complete.', 'success');
       setDownloadCompleteState('Download complete. Play it when ready.', { tone: 'success' });
     } catch (error) {
@@ -1104,6 +1116,7 @@
       state.uploadStarted = true;
       state.uploadReady = false;
       state.pendingVrmBlob = null;
+      state.downloadCompletedOnce = false;
       return;
     }
 

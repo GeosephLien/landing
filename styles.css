@@ -990,6 +990,72 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   opacity: 0.16;
 }
 
+#download-complete-download-button.is-secondary-look {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  color: var(--text-main);
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+#download-complete-download-button.is-secondary-look::before {
+  opacity: 0;
+}
+
+#download-complete-download-button.is-secondary-look:hover,
+#download-complete-download-button.is-secondary-look:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  filter: none;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+#download-complete-play-button.is-primary-look {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: linear-gradient(90deg, var(--magenta), var(--cyan-strong));
+  color: #fff;
+  box-shadow:
+    0 12px 24px rgba(91, 61, 255, 0.24),
+    0 0 12px rgba(181, 52, 255, 0.12),
+    0 0 20px rgba(36, 185, 255, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+#download-complete-play-button.is-primary-look::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: inherit;
+  filter: blur(18px);
+  opacity: 0.42;
+  background: linear-gradient(102deg, rgba(36, 185, 255, 0.66), rgba(122, 76, 255, 0.72), rgba(181, 52, 255, 0.68));
+  animation: start-button-glow 6s ease-in-out infinite;
+}
+
+#download-complete-play-button.is-primary-look:hover,
+#download-complete-play-button.is-primary-look:focus-visible {
+  border-color: transparent;
+  background: linear-gradient(90deg, var(--magenta), var(--cyan-strong));
+  box-shadow:
+    0 18px 36px rgba(91, 61, 255, 0.42),
+    0 0 22px rgba(181, 52, 255, 0.34),
+    0 0 38px rgba(36, 185, 255, 0.24);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+#download-complete-play-button.is-primary-look:hover::before,
+#download-complete-play-button.is-primary-look:focus-visible::before {
+  opacity: 0.96;
+  filter: blur(22px);
+}
+
 .flow-actions {
   display: flex;
   flex-wrap: wrap;
