@@ -19,6 +19,7 @@
   const landingSceneAvatarStatus = document.getElementById('landing-scene-avatar-status');
   const landingSceneOpenAc2Button = document.getElementById('landing-scene-open-ac2-button');
   const landingSceneBackButton = document.getElementById('landing-scene-back-button');
+  const landingSceneSaveAccountButton = document.getElementById('landing-scene-save-account-button');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
@@ -192,6 +193,22 @@
     createButton.textContent = hasAuthenticatedUser() ? 'Play It' : 'Create for Free!';
   }
 
+  function syncSceneActionButtons() {
+    const showGuestSaveAction = shouldShowDraftSaveAction();
+
+    if (landingSceneOpenAc2Button) {
+      landingSceneOpenAc2Button.hidden = showGuestSaveAction;
+    }
+
+    if (landingSceneBackButton) {
+      landingSceneBackButton.hidden = showGuestSaveAction;
+    }
+
+    if (landingSceneSaveAccountButton) {
+      landingSceneSaveAccountButton.hidden = !showGuestSaveAction;
+    }
+  }
+
   function renderUserPill(email) {
     const normalized = normalizeEmail(email);
     state.currentUserEmail = normalized;
@@ -204,10 +221,12 @@
       userPillText.textContent = `Hi, ${normalized}`;
       userPill.hidden = false;
       if (forgetMeButton) {
+        forgetMeButton.hidden = false;
         forgetMeButton.textContent = 'Forget me';
         forgetMeButton.disabled = state.forgettingUser;
       }
       syncPrimaryActionButton();
+      syncSceneActionButtons();
       return;
     }
 
@@ -215,20 +234,24 @@
       userPill.hidden = false;
       userPillText.textContent = 'Playing as guest';
       if (forgetMeButton) {
-        forgetMeButton.textContent = 'Create account to save your avatar';
-        forgetMeButton.disabled = state.sendingCode || state.verifyingCode || state.claimInFlight;
+        forgetMeButton.hidden = true;
+        forgetMeButton.textContent = 'Forget me';
+        forgetMeButton.disabled = false;
       }
       syncPrimaryActionButton();
+      syncSceneActionButtons();
       return;
     }
 
     userPill.hidden = true;
     userPillText.textContent = 'Hi,';
     if (forgetMeButton) {
+      forgetMeButton.hidden = false;
       forgetMeButton.textContent = 'Forget me';
       forgetMeButton.disabled = false;
     }
     syncPrimaryActionButton();
+    syncSceneActionButtons();
   }
 
   function hasAuthenticatedUser() {
@@ -368,10 +391,6 @@
       downloadCompletePlayButton.disabled = state.claimInFlight;
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
-    }
-
-    if (forgetMeButton && shouldShowDraftSaveAction()) {
-      forgetMeButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
     }
   }
 
@@ -881,15 +900,14 @@
   }
 
   function handleUserPillAction() {
-    if (shouldShowDraftSaveAction()) {
-      openVerificationModal({
-        resetForm: true,
-        focusField: true
-      });
-      return;
-    }
-
     handleForgetMe();
+  }
+
+  function openSaveAccountFlow() {
+    openVerificationModal({
+      resetForm: true,
+      focusField: true
+    });
   }
 
   async function requestDownloadCode(email) {
@@ -1551,6 +1569,12 @@
     });
   }
 
+  if (landingSceneSaveAccountButton) {
+    landingSceneSaveAccountButton.addEventListener('click', () => {
+      openSaveAccountFlow();
+    });
+  }
+
   verificationCloseTargets.forEach((target) => {
     target.addEventListener('click', () => {
       closeVerificationModal();
@@ -1564,5 +1588,6 @@
   }
 
   syncPrimaryActionButton();
+  syncSceneActionButtons();
   bootstrapCurrentUser();
 })();

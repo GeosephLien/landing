@@ -804,6 +804,10 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   margin-top: 16px;
 }
 
+.embedded-scene-actions [hidden] {
+  display: none;
+}
+
 .embedded-scene-open-button,
 .embedded-scene-back-button {
   min-width: 0;
