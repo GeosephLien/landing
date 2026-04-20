@@ -556,6 +556,7 @@
   }
 
   async function showEmbeddedDemoScene() {
+    renderUserPill(getSyncedTenantEmail());
     if (embeddedScene) {
       embeddedScene.hidden = false;
     }
@@ -835,7 +836,7 @@
       console.debug('No persisted landing user session.', error);
     }
 
-    renderUserPill('');
+    renderUserPill(getSyncedTenantEmail());
   }
 
   async function logoutCurrentUser() {
@@ -1559,6 +1560,7 @@
   const rememberedTenant = restoreTenant();
   if (rememberedTenant) {
     state.tenantId = rememberedTenant;
+    renderUserPill(rememberedTenant);
   }
 
   syncPrimaryActionButton();
