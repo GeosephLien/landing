@@ -630,7 +630,6 @@
     }
 
     state.tenantId = normalizedEmail;
-    persistTenant(normalizedEmail);
     state.sendingCode = true;
     state.downloadRequestId = '';
     state.verifiedForDownload = false;
@@ -662,6 +661,7 @@
       }
 
       state.downloadRequestId = payload.requestId || '';
+      persistTenant(normalizedEmail);
       setVerificationStep('code');
       setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}. Enter the 4-digit code to continue.`, 'success');
     } finally {
