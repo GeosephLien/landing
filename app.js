@@ -190,7 +190,7 @@
       return;
     }
 
-    createButton.textContent = hasAuthenticatedUser() ? 'My Avatars' : 'Create for Free!';
+    createButton.textContent = hasAuthenticatedUser() ? 'Enter Demo Scene' : 'Create for Free!';
   }
 
   function syncSceneActionButtons() {
@@ -393,7 +393,7 @@
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
@@ -729,7 +729,7 @@
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
@@ -1375,6 +1375,10 @@
   }
 
   function handleSceneOpenAc2Click() {
+    if (hasAuthenticatedUser() && embeddedScene && embeddedScene.hidden) {
+      showEmbeddedDemoScene();
+    }
+
     if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
       reopenCreator();
       return;
