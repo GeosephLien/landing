@@ -14,10 +14,10 @@
   const userPillText = document.getElementById('landing-user-pill-text');
   const forgetMeButton = document.getElementById('landing-forget-me-button');
   const landingPillOpenAc2Button = document.getElementById('landing-pill-open-ac2-button');
-  const landingPillBackButton = document.getElementById('landing-pill-back-button');
   const landingPillSaveAccountButton = document.getElementById('landing-pill-save-account-button');
   const embeddedScene = document.getElementById('embedded-demo-scene');
   const landingSceneCanvas = document.getElementById('landing-scene-canvas');
+  const embeddedSceneBackButton = document.getElementById('embedded-scene-back-button');
   const landingSceneSessionStatus = document.getElementById('landing-scene-session-status');
   const landingSceneAvatarStatus = document.getElementById('landing-scene-avatar-status');
   const ac2Modal = document.getElementById('ac2-modal');
@@ -190,20 +190,16 @@
       return;
     }
 
-    createButton.textContent = hasAuthenticatedUser() ? 'Play It' : 'Create for Free!';
+    createButton.textContent = hasAuthenticatedUser() ? 'My Avatars' : 'Create for Free!';
   }
 
   function syncSceneActionButtons() {
     const sceneVisible = Boolean(embeddedScene && !embeddedScene.hidden);
     const showGuestSaveAction = sceneVisible && shouldShowDraftSaveAction();
-    const showSceneControls = sceneVisible && hasAuthenticatedUser();
+    const showAvatarAccess = hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
-      landingPillOpenAc2Button.hidden = !showSceneControls;
-    }
-
-    if (landingPillBackButton) {
-      landingPillBackButton.hidden = !showSceneControls;
+      landingPillOpenAc2Button.hidden = !showAvatarAccess;
     }
 
     if (landingPillSaveAccountButton) {
@@ -1571,8 +1567,8 @@
     });
   }
 
-  if (landingPillBackButton) {
-    landingPillBackButton.addEventListener('click', () => {
+  if (embeddedSceneBackButton) {
+    embeddedSceneBackButton.addEventListener('click', () => {
       closeAc2Modal();
       hideEmbeddedDemoScene();
     });

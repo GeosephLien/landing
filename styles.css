@@ -765,6 +765,41 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   cursor: grabbing;
 }
 
+.embedded-scene-back-button {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(10, 16, 40, 0.5);
+  color: rgba(244, 247, 255, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.embedded-scene-back-button:hover,
+.embedded-scene-back-button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  outline: none;
+}
+
+.embedded-scene-back-button span {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .embedded-scene-hint {
   position: fixed;
   left: 24px;
@@ -1176,6 +1211,11 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     bottom: 16px;
     max-width: none;
     font-size: 0.9rem;
+  }
+
+  .embedded-scene-back-button {
+    top: 16px;
+    left: 16px;
   }
 
 }
