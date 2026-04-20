@@ -1280,8 +1280,7 @@
         await loadEmbeddedSceneAvatar({ force: true });
       }
       state.resumeToCreator = false;
-      setStatus(verificationStatus, 'Your avatar is now saved to your account.', 'success');
-      showDownloadCompletePanel('Your avatar is now saved to your account.', { tone: 'success' });
+      closeVerificationModal();
     } catch (error) {
       console.error(error);
       state.authenticationPassed = false;
