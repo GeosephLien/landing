@@ -773,8 +773,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -789,31 +789,10 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   opacity: 0.88;
 }
 
-.embedded-scene-back-icon {
-  position: relative;
+.embedded-scene-back-button img {
+  display: block;
   width: 44px;
   height: 44px;
-  display: block;
-}
-
-.embedded-scene-back-stroke {
-  position: absolute;
-  left: 6px;
-  width: 40px;
-  height: 10px;
-  border-radius: 999px;
-  background: currentColor;
-  transform-origin: left center;
-}
-
-.embedded-scene-back-stroke-top {
-  top: 50%;
-  transform: translateY(-50%) rotate(-45deg);
-}
-
-.embedded-scene-back-stroke-bottom {
-  top: 50%;
-  transform: translateY(-50%) rotate(45deg);
 }
 
 .embedded-scene-hint {
@@ -1232,19 +1211,13 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   .embedded-scene-back-button {
     top: 16px;
     left: 16px;
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
   }
 
-  .embedded-scene-back-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .embedded-scene-back-stroke {
-    left: 5px;
-    width: 32px;
-    height: 8px;
+  .embedded-scene-back-button img {
+    width: 38px;
+    height: 38px;
   }
 
 }
