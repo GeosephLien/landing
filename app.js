@@ -590,6 +590,7 @@
     if (heroShell) {
       heroShell.hidden = true;
     }
+    syncSceneActionButtons();
 
     try {
       await loadEmbeddedSceneAvatar({ force: !embeddedSceneLoadedTenant });
@@ -609,6 +610,7 @@
     if (heroShell) {
       heroShell.hidden = false;
     }
+    syncSceneActionButtons();
   }
 
   function getClaimFailureMessage(error) {
