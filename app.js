@@ -265,6 +265,18 @@
         ? `We sent a 4-digit code to ${state.tenantId}. Enter it below to enable download.`
         : 'Enter the 4-digit code we sent to your email to enable download.';
     }
+
+    if (verificationProgress && state.verificationStep === 'email') {
+      verificationProgress.hidden = true;
+      verificationProgress.setAttribute('aria-hidden', 'true');
+    }
+
+    if (verificationDownloadButton) {
+      const actions = verificationDownloadButton.closest('.flow-actions');
+      if (actions) {
+        actions.hidden = state.verificationStep === 'email';
+      }
+    }
   }
 
   function setVerificationPanelMode(mode) {
