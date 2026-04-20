@@ -67,7 +67,7 @@ img {
   position: absolute;
   top: 24px;
   right: 24px;
-  z-index: 3;
+  z-index: 12;
   display: inline-flex;
   align-items: center;
   gap: 12px;
