@@ -9,6 +9,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.1/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.1/examples/jsm/",
+        "@pixiv/three-vrm": "https://esm.sh/@pixiv/three-vrm@2.1.2?bundle&external=three",
+        "@pixiv/three-vrm-animation": "https://esm.sh/@pixiv/three-vrm-animation@2.1.2?bundle&external=three"
+      }
+    }
+  </script>
   <style>
     html,
     body,
@@ -69,6 +79,35 @@
       </section>
     </main>
   </div>
+
+  <section id="embedded-demo-scene" class="embedded-scene" hidden aria-label="Embedded demo scene">
+    <canvas id="landing-scene-canvas" class="embedded-scene-canvas" aria-label="Avatar demo scene"></canvas>
+
+    <section class="embedded-scene-overlay" aria-label="Embedded demo controls">
+      <h2 class="embedded-scene-title">Play Your Avatar</h2>
+      <p class="embedded-scene-copy">Stay on the landing page while exploring the same playable VRM scene and AC2 sync flow.</p>
+
+      <div class="embedded-scene-status-grid">
+        <div class="embedded-scene-status-card">
+          <span class="embedded-scene-status-label">Session</span>
+          <span id="landing-scene-session-status" class="embedded-scene-status-value">Preparing scene...</span>
+        </div>
+        <div class="embedded-scene-status-card">
+          <span class="embedded-scene-status-label">Active Avatar</span>
+          <span id="landing-scene-avatar-status" class="embedded-scene-status-value">Waiting for avatar...</span>
+        </div>
+      </div>
+
+      <div class="embedded-scene-actions">
+        <button id="landing-scene-open-ac2-button" class="hero-cta embedded-scene-open-button" type="button">Open AC2</button>
+        <button id="landing-scene-back-button" class="hero-secondary-cta embedded-scene-back-button" type="button">Back to Landing</button>
+      </div>
+
+      <p class="embedded-scene-controls">Drag to orbit the camera. Use <code>W</code> <code>A</code> <code>S</code> <code>D</code> to move the avatar.</p>
+    </section>
+
+    <div class="embedded-scene-help">AC2 selection sync stays active here: selecting an avatar in AC2 swaps the current VRM without leaving landing.</div>
+  </section>
 
   <div id="ac2-modal" class="ac2-modal-host" hidden aria-hidden="true">
     <div class="ac2-host-backdrop"></div>

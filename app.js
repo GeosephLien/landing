@@ -8,9 +8,16 @@
   };
 
   const createButton = document.getElementById('create-for-free-button');
+  const pageShell = document.querySelector('.page');
   const userPill = document.getElementById('landing-user-pill');
   const userPillText = document.getElementById('landing-user-pill-text');
   const forgetMeButton = document.getElementById('landing-forget-me-button');
+  const embeddedScene = document.getElementById('embedded-demo-scene');
+  const landingSceneCanvas = document.getElementById('landing-scene-canvas');
+  const landingSceneSessionStatus = document.getElementById('landing-scene-session-status');
+  const landingSceneAvatarStatus = document.getElementById('landing-scene-avatar-status');
+  const landingSceneOpenAc2Button = document.getElementById('landing-scene-open-ac2-button');
+  const landingSceneBackButton = document.getElementById('landing-scene-back-button');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
@@ -44,6 +51,7 @@
     activeAc2Mode: 'draft',
     draftSessionToken: '',
     authenticatedSessionToken: '',
+    authenticatedSessionEmail: '',
     finalSessionToken: '',
     claimInFlight: false,
     claimPromise: null,
@@ -99,6 +107,12 @@
     frameBackground: '#050814',
     border: '0 solid transparent'
   };
+
+  const VRM_SCENE_MODULE_URL = new URL('../demo/demo-scene/vrm-scene.js', window.location.href).href;
+  let vrmSceneModulePromise = null;
+  let embeddedVrmScene = null;
+  let embeddedSceneInitPromise = null;
+  let embeddedSceneLoadedTenant = '';
 
   function setStatus(element, message, tone) {
     if (!element) {
@@ -222,6 +236,7 @@
     state.tenantId = '';
     state.authenticatedTenantKey = '';
     state.authenticatedSessionToken = '';
+    state.authenticatedSessionEmail = '';
     state.finalSessionToken = '';
     state.currentUserEmail = '';
     state.activeAc2Mode = 'draft';
@@ -324,13 +339,188 @@
     setDownloadCompleteState(message, options);
   }
 
-  function getDemoSceneUrl() {
-    const tenant = state.lastClaimedTenantId || state.tenantId;
-    return `https://geosephlien.github.io/demo/demo-scene/?tenant=${encodeURIComponent(tenant)}`;
+  function setSceneSessionText(value) {
+    if (landingSceneSessionStatus) {
+      landingSceneSessionStatus.textContent = value;
+    }
   }
 
-  function navigateToDemoScene() {
-    window.location.href = getDemoSceneUrl();
+  function getSceneTenantEmail() {
+    return normalizeEmail(state.lastClaimedTenantId || state.currentUserEmail || state.tenantId);
+  }
+
+  async function ensureViewerSession() {
+    const tenantEmail = getSceneTenantEmail();
+    if (!isValidEmail(tenantEmail)) {
+      throw new Error('A verified email is required before opening the embedded scene.');
+    }
+
+    if (!state.authenticatedSessionToken || state.authenticatedSessionEmail !== tenantEmail) {
+      setSceneSessionText('Requesting authenticated session...');
+      const session = await requestAuthenticatedSession(tenantEmail);
+      state.authenticatedSessionToken = session.sessionToken || '';
+      state.authenticatedTenantKey = session.tenantId || state.authenticatedTenantKey;
+      state.authenticatedSessionEmail = tenantEmail;
+    }
+
+    setSceneSessionText(`Session ready for ${tenantEmail}`);
+    return {
+      tenantEmail,
+      sessionToken: state.authenticatedSessionToken
+    };
+  }
+
+  async function authorizedGet(path) {
+    const session = await ensureViewerSession();
+    return fetch(`${SYSTEM_DEFAULTS.apiBase}${path}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Authorization: `Bearer ${session.sessionToken}`
+      }
+    });
+  }
+
+  async function fetchVrmFiles() {
+    const response = await authorizedGet('/api/ac2/files');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch VRM files (${response.status})`);
+    }
+    return response.json();
+  }
+
+  async function fetchDownloadUrl(key, expiresIn = 3600) {
+    const response = await authorizedGet(
+      `/api/ac2/download-url?key=${encodeURIComponent(key)}&expiresIn=${encodeURIComponent(expiresIn)}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to create download URL (${response.status})`);
+    }
+    return response.json();
+  }
+
+  async function fetchAnimationUrl(name, expiresIn = 3600) {
+    const response = await authorizedGet(
+      `/api/ac2/animation-url?name=${encodeURIComponent(name)}&expiresIn=${encodeURIComponent(expiresIn)}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to create animation URL (${response.status})`);
+    }
+    return response.json();
+  }
+
+  async function fetchActiveAvatar() {
+    const response = await authorizedGet('/api/ac2/active-avatar');
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json().catch(() => null);
+    return payload && payload.key ? payload.key : null;
+  }
+
+  async function saveActiveAvatar(key) {
+    const session = await ensureViewerSession();
+    const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/active-avatar`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.sessionToken}`
+      },
+      body: JSON.stringify({ key })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save active avatar (${response.status})`);
+    }
+  }
+
+  async function ensureEmbeddedSceneReady() {
+    if (embeddedVrmScene) {
+      return embeddedVrmScene;
+    }
+
+    if (embeddedSceneInitPromise) {
+      return embeddedSceneInitPromise;
+    }
+
+    embeddedSceneInitPromise = (async () => {
+      if (!landingSceneCanvas) {
+        throw new Error('Embedded scene canvas is not available.');
+      }
+
+      setSceneSessionText('Loading scene module...');
+      if (!vrmSceneModulePromise) {
+        vrmSceneModulePromise = import(VRM_SCENE_MODULE_URL);
+      }
+
+      const sceneModule = await vrmSceneModulePromise;
+      embeddedVrmScene = sceneModule.createVrmScene({
+        canvas: landingSceneCanvas,
+        avatarStatus: landingSceneAvatarStatus
+      });
+
+      embeddedVrmScene.start({
+        resolveAnimationUrl: (name) => fetchAnimationUrl(name),
+        resolveDownloadUrl: (key) => fetchDownloadUrl(key)
+      });
+
+      return embeddedVrmScene;
+    })().finally(() => {
+      embeddedSceneInitPromise = null;
+    });
+
+    return embeddedSceneInitPromise;
+  }
+
+  async function loadEmbeddedSceneAvatar(options = {}) {
+    const nextOptions = options || {};
+    const tenantEmail = getSceneTenantEmail();
+    const sceneInstance = await ensureEmbeddedSceneReady();
+
+    if (!nextOptions.force && embeddedSceneLoadedTenant === tenantEmail) {
+      setSceneSessionText(`Session ready for ${tenantEmail}`);
+      return sceneInstance;
+    }
+
+    setSceneSessionText(`Loading avatar for ${tenantEmail}...`);
+    await ensureViewerSession();
+    await sceneInstance.loadInitialAvatar(
+      () => fetchVrmFiles(),
+      () => fetchActiveAvatar(),
+      (key) => fetchDownloadUrl(key)
+    );
+    embeddedSceneLoadedTenant = tenantEmail;
+    setSceneSessionText(`Session ready for ${tenantEmail}`);
+    return sceneInstance;
+  }
+
+  async function showEmbeddedDemoScene() {
+    if (embeddedScene) {
+      embeddedScene.hidden = false;
+    }
+    if (pageShell) {
+      pageShell.hidden = true;
+    }
+
+    try {
+      await loadEmbeddedSceneAvatar({ force: !embeddedSceneLoadedTenant });
+    } catch (error) {
+      console.error(error);
+      setSceneSessionText(error.message || 'Unable to load the embedded scene.');
+      if (landingSceneAvatarStatus) {
+        landingSceneAvatarStatus.textContent = `Unable to load avatar: ${error.message}`;
+      }
+    }
+  }
+
+  function hideEmbeddedDemoScene() {
+    if (embeddedScene) {
+      embeddedScene.hidden = true;
+    }
+    if (pageShell) {
+      pageShell.hidden = false;
+    }
   }
 
   function getClaimFailureMessage(error) {
@@ -920,6 +1110,7 @@
       const session = await requestAuthenticatedSession(state.currentUserEmail || state.tenantId);
       state.activeAc2Mode = 'viewer';
       state.authenticatedSessionToken = session.sessionToken || '';
+      state.authenticatedSessionEmail = normalizeEmail(state.currentUserEmail || state.tenantId);
       state.authenticatedTenantKey = session.tenantId || state.authenticatedTenantKey;
       state.ac2RequestId = `landing-viewer-${Date.now()}`;
       state.launchPending = true;
@@ -1109,6 +1300,29 @@
       return;
     }
 
+    if (message.type === 'ac2:avatar-selected') {
+      if (state.activeAc2Mode !== 'viewer' || !embeddedVrmScene) {
+        return;
+      }
+
+      const selection = message.payload || {};
+      const nextKey = selection.key || '';
+      const nextName = selection.fileName || selection.label || nextKey || 'avatar.vrm';
+
+      embeddedVrmScene.loadAvatarFromSelection(selection, (key) => fetchDownloadUrl(key))
+        .then(() => {
+          if (nextKey) {
+            return saveActiveAvatar(nextKey);
+          }
+          return null;
+        })
+        .catch((error) => {
+          console.error(error);
+          embeddedVrmScene.setAvatarText(`${nextName} failed: ${error.message}`);
+        });
+      return;
+    }
+
     if (message.type === 'ac2:upload-started') {
       if (state.activeAc2Mode === 'viewer') {
         return;
@@ -1237,7 +1451,20 @@
     downloadCompletePlayButton.addEventListener('click', async () => {
       closeVerificationModal();
       closeAc2Modal();
-      navigateToDemoScene();
+      showEmbeddedDemoScene();
+    });
+  }
+
+  if (landingSceneOpenAc2Button) {
+    landingSceneOpenAc2Button.addEventListener('click', () => {
+      handleCreateButtonClick();
+    });
+  }
+
+  if (landingSceneBackButton) {
+    landingSceneBackButton.addEventListener('click', () => {
+      closeAc2Modal();
+      hideEmbeddedDemoScene();
     });
   }
 
