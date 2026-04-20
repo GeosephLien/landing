@@ -907,8 +907,13 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #verification-step-email[hidden],
-#verification-step-code[hidden] {
+#verification-step-code[hidden],
+#verification-resend-row[hidden] {
   display: none;
+}
+
+#verification-resend-row {
+  margin-top: 10px;
 }
 
 .flow-inline-action {

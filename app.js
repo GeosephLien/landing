@@ -18,6 +18,7 @@
   const verificationStepEmail = document.getElementById('verification-step-email');
   const verificationStepCode = document.getElementById('verification-step-code');
   const verificationCodeHelp = document.getElementById('verification-code-help');
+  const verificationResendRow = document.getElementById('verification-resend-row');
   const verificationEmailInput = document.getElementById('verification-email-input');
   const verificationCodeInput = document.getElementById('verification-code-input');
   const verificationStatus = document.getElementById('verification-status');
@@ -258,6 +259,10 @@
 
     if (verificationStepCode) {
       verificationStepCode.hidden = state.verificationStep !== 'code';
+    }
+
+    if (verificationResendRow) {
+      verificationResendRow.hidden = state.verificationStep !== 'code';
     }
 
     if (verificationCodeHelp) {
