@@ -15,9 +15,9 @@
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
   const verificationWorkflow = document.getElementById('verification-workflow');
+  const verificationTitle = document.getElementById('verification-title');
   const verificationStepEmail = document.getElementById('verification-step-email');
   const verificationStepCode = document.getElementById('verification-step-code');
-  const verificationCodeHelp = document.getElementById('verification-code-help');
   const verificationResendRow = document.getElementById('verification-resend-row');
   const verificationEmailInput = document.getElementById('verification-email-input');
   const verificationCodeInput = document.getElementById('verification-code-input');
@@ -26,11 +26,13 @@
   const verificationProgressBar = document.getElementById('verification-progress-bar');
   const verificationProgressText = document.getElementById('verification-progress-text');
   const verificationProgressDetail = document.getElementById('verification-progress-detail');
+  const verificationSendActions = document.getElementById('verification-send-actions');
   const verificationSendButton = document.getElementById('verification-send-button');
   const verificationResendButton = document.getElementById('verification-resend-button');
   const verificationDownloadButton = document.getElementById('verification-download-button');
   const downloadCompletePanel = document.getElementById('download-complete-panel');
   const downloadCompleteStatus = document.getElementById('download-complete-status');
+  const downloadCompleteDownloadButton = document.getElementById('download-complete-download-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
@@ -265,10 +267,8 @@
       verificationResendRow.hidden = state.verificationStep !== 'code';
     }
 
-    if (verificationCodeHelp) {
-      verificationCodeHelp.textContent = state.tenantId
-        ? `We sent a 4-digit code to ${state.tenantId}. Enter it below to enable download.`
-        : 'Enter the 4-digit code we sent to your email to enable download.';
+    if (verificationSendActions) {
+      verificationSendActions.hidden = state.verificationStep !== 'email';
     }
 
     if (verificationProgress && state.verificationStep === 'email') {
@@ -285,14 +285,20 @@
   }
 
   function setVerificationPanelMode(mode) {
-    state.verificationPanelMode = mode === 'complete' ? 'complete' : 'verify';
+    state.verificationPanelMode = mode === 'ready' ? 'ready' : 'verify';
+
+    if (verificationTitle) {
+      verificationTitle.textContent = state.verificationPanelMode === 'ready'
+        ? "You're Ready!"
+        : 'Verify to Download VRM';
+    }
 
     if (verificationWorkflow) {
       verificationWorkflow.hidden = state.verificationPanelMode !== 'verify';
     }
 
     if (downloadCompletePanel) {
-      downloadCompletePanel.hidden = state.verificationPanelMode !== 'complete';
+      downloadCompletePanel.hidden = state.verificationPanelMode !== 'ready';
     }
   }
 
@@ -304,14 +310,19 @@
       downloadCompleteStatus.classList.toggle('is-success', nextOptions.tone !== 'error');
     }
 
+    if (downloadCompleteDownloadButton) {
+      downloadCompleteDownloadButton.disabled = state.downloading;
+      downloadCompleteDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';
+    }
+
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play Avatar';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
     }
   }
 
   function showDownloadCompletePanel(message, options) {
-    setVerificationPanelMode('complete');
+    setVerificationPanelMode('ready');
     setVerificationProgress(0, 'Waiting to download...', { hidden: true });
     setDownloadCompleteState(message, options);
   }
@@ -397,17 +408,12 @@
       return;
     }
 
-    if (!state.uploadReady) {
-      setStatus(verificationStatus, 'Avatar upload complete is required before download can start.');
-      return;
-    }
-
     if (!state.verifiedForDownload) {
-      setStatus(verificationStatus, 'Enter the 4-digit verification code, then click Download VRM.');
+      setStatus(verificationStatus, 'Enter the 4-digit verification code, then click Confirm.');
       return;
     }
 
-    setStatus(verificationStatus, 'Verification passed. Download is ready.', 'success');
+    setStatus(verificationStatus, 'Verification passed. Continue to the next step.', 'success');
   }
 
   function syncVerificationButtons() {
@@ -417,7 +423,6 @@
     const canVerifyAndDownload = Boolean(
       state.downloadRequestId
       && normalizedCode.length === 4
-      && state.uploadReady
       && state.pendingAvatarKey
       && state.pendingVrmBlob instanceof Blob
     );
@@ -434,14 +439,17 @@
 
     if (verificationDownloadButton) {
       verificationDownloadButton.disabled = !canVerifyAndDownload || state.downloading || state.verifyingCode;
-      verificationDownloadButton.textContent = state.downloading
-        ? 'Downloading...'
-        : (state.verifyingCode ? 'Verifying...' : 'Download VRM');
+      verificationDownloadButton.textContent = state.verifyingCode ? 'Verifying...' : 'Confirm';
+    }
+
+    if (downloadCompleteDownloadButton) {
+      downloadCompleteDownloadButton.disabled = state.downloading;
+      downloadCompleteDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';
     }
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play Avatar';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
     }
   }
 
@@ -962,11 +970,6 @@
       return;
     }
 
-    if (!state.uploadReady) {
-      setStatus(verificationStatus, 'Your avatar is still uploading. Download will be enabled when it is ready.');
-      return;
-    }
-
     state.verifyingCode = true;
     syncVerificationButtons();
     setStatus(verificationStatus, 'Verifying code...');
@@ -978,6 +981,9 @@
       state.verifiedCodeValue = code;
       renderUserPill(state.tenantId);
       verificationCodeInput.classList.remove('input-error');
+      state.resumeToCreator = false;
+      setStatus(verificationStatus, 'Your avatar is verified and ready.', 'success');
+      showDownloadCompletePanel('Your avatar is verified and ready.', { tone: 'success' });
     } catch (error) {
       console.error(error);
       state.authenticationPassed = false;
@@ -990,6 +996,12 @@
     } finally {
       state.verifyingCode = false;
       syncVerificationButtons();
+    }
+  }
+
+  async function handleReadyDownload() {
+    if (!state.pendingAvatarKey || state.downloading) {
+      return;
     }
 
     let fileHandle = null;
@@ -1006,7 +1018,7 @@
     state.downloading = true;
     syncVerificationButtons();
     setStatus(verificationStatus, 'Preparing download...');
-    setVerificationProgress(0, 'Preparing download...', { hidden: false });
+    setDownloadCompleteState('Preparing download...', { tone: 'success' });
 
     try {
       if (!(state.pendingVrmBlob instanceof Blob)) {
@@ -1016,25 +1028,11 @@
       const claimPromise = queueClaimDraftAvatar();
 
       try {
-        await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle, ({ loadedBytes, totalBytes, done }) => {
-          const hasTotal = Number.isFinite(totalBytes) && totalBytes > 0;
-          const percent = hasTotal
-            ? Math.round((loadedBytes / totalBytes) * 100)
-            : (done ? 100 : 0);
-          const detail = hasTotal
-            ? `${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)}`
-            : `${formatBytes(loadedBytes)} downloaded`;
-
-          setVerificationProgress(percent, detail, { hidden: false });
-          setStatus(
-            verificationStatus,
-            done ? 'Download complete.' : 'Downloading VRM to your device...'
-          );
-        });
+        await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle);
       } catch (error) {
         if (isFilePickerAbortError(error)) {
-          setVerificationProgress(0, 'Download was cancelled.', { hidden: true });
           setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
+          setDownloadCompleteState('Download was cancelled. You can try again.', { tone: 'error' });
           return;
         }
         throw error;
@@ -1043,16 +1041,14 @@
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       setStatus(verificationStatus, 'Download complete.', 'success');
-      setVerificationProgress(100, 'Saved to your selected location.', { hidden: false });
-      state.resumeToCreator = false;
-      showDownloadCompletePanel('Download complete. Play your avatar when ready.', { tone: 'success' });
+      setDownloadCompleteState('Download complete. Play it when ready.', { tone: 'success' });
       claimPromise.catch((error) => {
         console.error(error);
       });
     } catch (error) {
       console.error(error);
-      setVerificationProgress(0, error.message || 'VRM download failed.', { hidden: true });
       setStatus(verificationStatus, error.message || 'VRM download failed.', 'error');
+      setDownloadCompleteState(error.message || 'VRM download failed.', { tone: 'error' });
     } finally {
       state.downloading = false;
       syncVerificationButtons();
@@ -1223,6 +1219,12 @@
   if (verificationDownloadButton) {
     verificationDownloadButton.addEventListener('click', () => {
       handleDownload();
+    });
+  }
+
+  if (downloadCompleteDownloadButton) {
+    downloadCompleteDownloadButton.addEventListener('click', () => {
+      handleReadyDownload();
     });
   }
 

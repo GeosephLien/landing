@@ -888,7 +888,9 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #download-complete-panel[hidden],
-#verification-workflow[hidden] {
+#verification-workflow[hidden],
+#verification-progress[hidden],
+.flow-actions[hidden] {
   display: none;
 }
 
@@ -955,6 +957,16 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-download-button {
   width: 100%;
+}
+
+#verification-send-button {
+  width: 100%;
+  min-width: 0;
+}
+
+#verification-resend-button {
+  width: 100%;
+  min-width: 0;
 }
 
 #verification-download-button:disabled,

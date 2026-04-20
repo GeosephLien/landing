@@ -90,7 +90,6 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="verification-title"
-      aria-describedby="verification-description"
     >
       <button
         class="flow-close"
@@ -102,28 +101,19 @@
       </button>
       <div class="flow-header">
         <p class="flow-eyebrow">Avatar Ready</p>
-        <h2 id="verification-title">Confirm and download your VRM</h2>
-        <p id="verification-description">
-          Verify your email in two steps, then download your VRM. After download, the demo scene will open with the same tenant storage.
-        </p>
+        <h2 id="verification-title">Verify to Download VRM</h2>
+        <p id="verification-status" class="flow-status" aria-live="polite"></p>
       </div>
 
       <div id="verification-workflow">
         <div id="verification-step-email">
-          <p class="flow-step-label">Step 1 of 2</p>
           <label class="flow-field">
             <span>Email</span>
             <input id="verification-email-input" type="email" autocomplete="email" placeholder="openme@htc.com">
           </label>
-
-          <div class="flow-inline-action">
-            <button id="verification-send-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
-          </div>
         </div>
 
         <div id="verification-step-code" hidden>
-          <p class="flow-step-label">Step 2 of 2</p>
-          <p id="verification-code-help" class="flow-step-note"></p>
           <label class="flow-field">
             <span>Verification Code</span>
             <input
@@ -136,8 +126,9 @@
             >
           </label>
         </div>
-
-        <p id="verification-status" class="flow-status" aria-live="polite"></p>
+        <div class="flow-actions" id="verification-send-actions" hidden>
+          <button id="verification-send-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
+        </div>
         <div id="verification-progress" class="flow-progress" hidden aria-hidden="true">
           <div class="flow-progress-track" aria-hidden="true">
             <div id="verification-progress-bar" class="flow-progress-bar"></div>
@@ -149,7 +140,7 @@
         </div>
 
         <div class="flow-actions">
-          <button id="verification-download-button" class="hero-cta flow-primary" type="button" disabled>Download VRM</button>
+          <button id="verification-download-button" class="hero-cta flow-primary" type="button" disabled>Confirm</button>
         </div>
 
         <div class="flow-inline-action" id="verification-resend-row">
@@ -158,9 +149,10 @@
       </div>
 
       <div id="download-complete-panel" hidden>
-        <p id="download-complete-status" class="flow-status is-success">Download complete. Play your avatar when ready.</p>
+        <p id="download-complete-status" class="flow-status is-success">Your avatar is verified and ready.</p>
         <div class="flow-actions">
-          <button id="download-complete-play-button" class="hero-cta flow-primary" type="button">Play Avatar</button>
+          <button id="download-complete-download-button" class="hero-cta flow-primary" type="button">Download VRM</button>
+          <button id="download-complete-play-button" class="hero-secondary-cta flow-secondary" type="button">Play It</button>
         </div>
       </div>
     </section>
