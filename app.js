@@ -64,6 +64,7 @@
     pendingAvatarKey: '',
     pendingFileName: 'avatar.vrm',
     pendingVrmBlob: null,
+    pendingAccountEmail: '',
     downloadRequestId: '',
     verifiedForDownload: false,
     authenticationPassed: false,
@@ -171,6 +172,18 @@
     return String(value || '').trim().toLowerCase();
   }
 
+  function getSyncedTenantEmail() {
+    return normalizeEmail(state.currentUserEmail || state.lastClaimedTenantId || state.tenantId);
+  }
+
+  function hasDraftAvatarReady() {
+    return Boolean(state.draftSessionToken && state.draftTenantId && state.pendingAvatarKey);
+  }
+
+  function shouldShowDraftSaveAction() {
+    return hasDraftAvatarReady() && !hasAuthenticatedUser();
+  }
+
   function syncPrimaryActionButton() {
     if (!createButton) {
       return;
@@ -187,26 +200,39 @@
       return;
     }
 
-    if (!normalized) {
-      userPill.hidden = true;
-      userPillText.textContent = 'Hi,';
+    if (normalized) {
+      userPillText.textContent = `Hi, ${normalized}`;
+      userPill.hidden = false;
       if (forgetMeButton) {
-        forgetMeButton.disabled = false;
+        forgetMeButton.textContent = 'Forget me';
+        forgetMeButton.disabled = state.forgettingUser;
       }
       syncPrimaryActionButton();
       return;
     }
 
-    userPillText.textContent = `Hi, ${normalized}`;
-    userPill.hidden = false;
+    if (shouldShowDraftSaveAction()) {
+      userPill.hidden = false;
+      userPillText.textContent = 'Playing as guest';
+      if (forgetMeButton) {
+        forgetMeButton.textContent = 'Create account to save your avatar';
+        forgetMeButton.disabled = state.sendingCode || state.verifyingCode || state.claimInFlight;
+      }
+      syncPrimaryActionButton();
+      return;
+    }
+
+    userPill.hidden = true;
+    userPillText.textContent = 'Hi,';
     if (forgetMeButton) {
-      forgetMeButton.disabled = state.forgettingUser;
+      forgetMeButton.textContent = 'Forget me';
+      forgetMeButton.disabled = false;
     }
     syncPrimaryActionButton();
   }
 
   function hasAuthenticatedUser() {
-    return Boolean(normalizeEmail(state.currentUserEmail || state.tenantId));
+    return Boolean(getSyncedTenantEmail());
   }
 
   function isValidEmail(value) {
@@ -255,6 +281,7 @@
     state.authenticationPassed = false;
     state.verifiedForDownload = false;
     state.verifiedCodeValue = '';
+    state.pendingAccountEmail = '';
     clearPersistedTenant();
     renderUserPill('');
   }
@@ -315,8 +342,8 @@
 
     if (verificationTitle) {
       verificationTitle.textContent = state.verificationPanelMode === 'ready'
-        ? "You're Ready!"
-        : 'Verify to Download VRM';
+        ? 'Avatar Ready'
+        : 'Create Account to Save Avatar';
     }
 
     if (verificationWorkflow) {
@@ -342,6 +369,10 @@
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Play It';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
+
+    if (forgetMeButton && shouldShowDraftSaveAction()) {
+      forgetMeButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
+    }
   }
 
   function showDownloadCompletePanel(message, options) {
@@ -350,39 +381,51 @@
     setDownloadCompleteState(message, options);
   }
 
+  function openDownloadReadyModal(message, options) {
+    toggleModal(verificationModal, true);
+    showDownloadCompletePanel(message, options);
+    setStatus(verificationStatus, message || '', options && options.tone ? options.tone : 'success');
+  }
+
   function setSceneSessionText(value) {
     if (landingSceneSessionStatus) {
       landingSceneSessionStatus.textContent = value;
     }
   }
 
-  function getSceneTenantEmail() {
-    return normalizeEmail(state.lastClaimedTenantId || state.currentUserEmail || state.tenantId);
-  }
+  async function ensureSceneSession() {
+    const syncedTenantEmail = getSyncedTenantEmail();
+    if (syncedTenantEmail && isValidEmail(syncedTenantEmail)) {
+      if (!state.authenticatedSessionToken || state.authenticatedSessionEmail !== syncedTenantEmail) {
+        setSceneSessionText('Requesting authenticated session...');
+        const session = await requestAuthenticatedSession(syncedTenantEmail);
+        state.authenticatedSessionToken = session.sessionToken || '';
+        state.authenticatedTenantKey = session.tenantId || state.authenticatedTenantKey;
+        state.authenticatedSessionEmail = syncedTenantEmail;
+      }
 
-  async function ensureViewerSession() {
-    const tenantEmail = getSceneTenantEmail();
-    if (!isValidEmail(tenantEmail)) {
-      throw new Error('A verified email is required before opening the embedded scene.');
+      setSceneSessionText(`Session ready for ${syncedTenantEmail}`);
+      return {
+        mode: 'claimed',
+        tenantId: syncedTenantEmail,
+        sessionToken: state.authenticatedSessionToken
+      };
     }
 
-    if (!state.authenticatedSessionToken || state.authenticatedSessionEmail !== tenantEmail) {
-      setSceneSessionText('Requesting authenticated session...');
-      const session = await requestAuthenticatedSession(tenantEmail);
-      state.authenticatedSessionToken = session.sessionToken || '';
-      state.authenticatedTenantKey = session.tenantId || state.authenticatedTenantKey;
-      state.authenticatedSessionEmail = tenantEmail;
+    if (!hasDraftAvatarReady()) {
+      throw new Error('Create an avatar first before opening the embedded scene.');
     }
 
-    setSceneSessionText(`Session ready for ${tenantEmail}`);
+    setSceneSessionText(`Draft session ready for ${state.draftTenantId}`);
     return {
-      tenantEmail,
-      sessionToken: state.authenticatedSessionToken
+      mode: 'draft',
+      tenantId: state.draftTenantId,
+      sessionToken: state.draftSessionToken
     };
   }
 
   async function authorizedGet(path) {
-    const session = await ensureViewerSession();
+    const session = await ensureSceneSession();
     return fetch(`${SYSTEM_DEFAULTS.apiBase}${path}`, {
       method: 'GET',
       credentials: 'include',
@@ -430,7 +473,7 @@
   }
 
   async function saveActiveAvatar(key) {
-    const session = await ensureViewerSession();
+    const session = await ensureSceneSession();
     const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/active-avatar`, {
       method: 'PUT',
       credentials: 'include',
@@ -486,23 +529,29 @@
 
   async function loadEmbeddedSceneAvatar(options = {}) {
     const nextOptions = options || {};
-    const tenantEmail = getSceneTenantEmail();
+    const session = await ensureSceneSession();
+    const nextSceneTenant = session.mode === 'claimed' ? getSyncedTenantEmail() : state.draftTenantId;
     const sceneInstance = await ensureEmbeddedSceneReady();
 
-    if (!nextOptions.force && embeddedSceneLoadedTenant === tenantEmail) {
-      setSceneSessionText(`Session ready for ${tenantEmail}`);
+    if (!nextOptions.force && embeddedSceneLoadedTenant === nextSceneTenant) {
+      setSceneSessionText(session.mode === 'claimed'
+        ? `Session ready for ${nextSceneTenant}`
+        : `Draft session ready for ${nextSceneTenant}`);
       return sceneInstance;
     }
 
-    setSceneSessionText(`Loading avatar for ${tenantEmail}...`);
-    await ensureViewerSession();
+    setSceneSessionText(session.mode === 'claimed'
+      ? `Loading avatar for ${nextSceneTenant}...`
+      : `Loading draft avatar ${nextSceneTenant}...`);
     await sceneInstance.loadInitialAvatar(
       () => fetchVrmFiles(),
       () => fetchActiveAvatar(),
       (key) => fetchDownloadUrl(key)
     );
-    embeddedSceneLoadedTenant = tenantEmail;
-    setSceneSessionText(`Session ready for ${tenantEmail}`);
+    embeddedSceneLoadedTenant = nextSceneTenant;
+    setSceneSessionText(session.mode === 'claimed'
+      ? `Session ready for ${nextSceneTenant}`
+      : `Draft session ready for ${nextSceneTenant}`);
     return sceneInstance;
   }
 
@@ -559,8 +608,9 @@
         state.finalSessionToken = claim.sessionToken || state.finalSessionToken;
         state.pendingAvatarKey = claim.claimedKey || state.pendingAvatarKey;
         state.pendingFileName = claim.fileName || state.pendingFileName;
-        state.tenantId = normalizeEmail(claim.tenantId || state.tenantId);
+        state.tenantId = normalizeEmail(claim.tenantId || state.pendingAccountEmail || state.tenantId);
         state.lastClaimedTenantId = state.tenantId;
+        state.pendingAccountEmail = '';
         persistTenant(state.tenantId);
         renderUserPill(state.tenantId);
         return claim;
@@ -574,6 +624,7 @@
         state.claimInFlight = false;
         const message = state.claimError || 'Download complete. Play your avatar when ready.';
         setDownloadCompleteState(message, { tone: state.claimError ? 'error' : 'success' });
+        renderUserPill(state.currentUserEmail);
         if (state.claimError) {
           state.claimPromise = null;
         }
@@ -592,12 +643,12 @@
     }
 
     if (state.authenticationPassed && state.uploadReady) {
-      setStatus(verificationStatus, 'Authentication already completed. Download is ready.', 'success');
+      setStatus(verificationStatus, 'Verification already completed. Save your avatar when ready.', 'success');
       return;
     }
 
     if (state.verificationStep === 'email') {
-      setStatus(verificationStatus, 'Enter your email and send the verification code.');
+      setStatus(verificationStatus, 'Enter your email and send the verification code to save this draft avatar.');
       return;
     }
 
@@ -607,11 +658,11 @@
     }
 
     if (!state.verifiedForDownload) {
-      setStatus(verificationStatus, 'Enter the 4-digit verification code, then click Confirm.');
+      setStatus(verificationStatus, 'Enter the 4-digit verification code, then click Confirm to save your avatar.');
       return;
     }
 
-    setStatus(verificationStatus, 'Verification passed. Continue to the next step.', 'success');
+    setStatus(verificationStatus, 'Verification passed. Saving your avatar...', 'success');
   }
 
   function syncVerificationButtons() {
@@ -667,7 +718,7 @@
       state.verifiedForDownload = false;
       state.verifiedCodeValue = '';
       state.authenticationPassed = false;
-      state.downloadCompletedOnce = false;
+      state.pendingAccountEmail = '';
       setVerificationStep('email');
 
       if (verificationEmailInput) {
@@ -828,13 +879,25 @@
     renderUserPill('');
   }
 
+  function handleUserPillAction() {
+    if (shouldShowDraftSaveAction()) {
+      openVerificationModal({
+        resetForm: true,
+        focusField: true
+      });
+      return;
+    }
+
+    handleForgetMe();
+  }
+
   async function requestDownloadCode(email) {
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
       throw new Error('Enter a valid email address first.');
     }
 
-    state.tenantId = normalizedEmail;
+    state.pendingAccountEmail = normalizedEmail;
     state.sendingCode = true;
     state.downloadRequestId = '';
     state.verifiedForDownload = false;
@@ -866,7 +929,6 @@
       }
 
       state.downloadRequestId = payload.requestId || '';
-      persistTenant(normalizedEmail);
       setVerificationStep('code');
       setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}. Enter the 4-digit code to continue.`, 'success');
     } finally {
@@ -885,7 +947,7 @@
       },
       body: JSON.stringify({
         requestId: state.downloadRequestId,
-        tenantId: state.tenantId,
+        tenantId: state.pendingAccountEmail,
         hostOrigin: window.location.origin,
         code
       })
@@ -908,7 +970,7 @@
         Authorization: `Bearer ${state.draftSessionToken}`
       },
       body: JSON.stringify({
-        targetTenantId: state.tenantId,
+        targetTenantId: state.pendingAccountEmail,
         hostOrigin: window.location.origin,
         downloadRequestId: state.downloadRequestId,
         avatarKey: state.pendingAvatarKey
@@ -1186,14 +1248,17 @@
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.verifiedCodeValue = code;
-      renderUserPill(state.tenantId);
       verificationCodeInput.classList.remove('input-error');
-      setStatus(verificationStatus, 'Verification succeeded. Syncing your avatar now. Do not close or refresh the browser.', 'success');
+      setStatus(verificationStatus, 'Verification succeeded. Saving your avatar now. Do not close or refresh the browser.', 'success');
       syncVerificationButtons();
       await queueClaimDraftAvatar();
+      embeddedSceneLoadedTenant = '';
+      if (embeddedScene && !embeddedScene.hidden) {
+        await loadEmbeddedSceneAvatar({ force: true });
+      }
       state.resumeToCreator = false;
-      setStatus(verificationStatus, 'Your avatar is verified and ready.', 'success');
-      showDownloadCompletePanel('Your avatar is verified and ready.', { tone: 'success' });
+      setStatus(verificationStatus, 'Your avatar is now saved to your account.', 'success');
+      showDownloadCompletePanel('Your avatar is now saved to your account.', { tone: 'success' });
     } catch (error) {
       console.error(error);
       state.authenticationPassed = false;
@@ -1285,6 +1350,20 @@
     launchDraftCreator();
   }
 
+  function handleSceneOpenAc2Click() {
+    if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
+      reopenCreator();
+      return;
+    }
+
+    if (hasAuthenticatedUser()) {
+      launchAuthenticatedViewer();
+      return;
+    }
+
+    launchDraftCreator();
+  }
+
   window.addEventListener('message', (event) => {
     if (event.origin !== SYSTEM_DEFAULTS.ac2Origin) {
       return;
@@ -1369,23 +1448,15 @@
         ? message.payload.fileBlob
         : null;
       state.resumeToCreator = false;
-      if (verificationModal.hidden) {
-        openVerificationModal({
-          resetForm: true,
-          focusField: true
-        });
-        if (!(state.pendingVrmBlob instanceof Blob)) {
-          setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
-          syncVerificationButtons();
-        }
-      } else {
-        if (!(state.pendingVrmBlob instanceof Blob)) {
-          setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
-        } else {
-          updateVerificationStatusForState();
-        }
+      state.pendingAccountEmail = '';
+      if (!(state.pendingVrmBlob instanceof Blob)) {
+        setStatus(verificationStatus, 'VRM data was not retained on the landing page. Please create the avatar again.', 'error');
         syncVerificationButtons();
+        return;
       }
+      renderUserPill(state.currentUserEmail);
+      openDownloadReadyModal('Your draft avatar is ready. Download it now or jump into Play It.', { tone: 'success' });
+      syncVerificationButtons();
       return;
     }
 
@@ -1409,7 +1480,7 @@
 
   if (forgetMeButton) {
     forgetMeButton.addEventListener('click', () => {
-      handleForgetMe();
+      handleUserPillAction();
     });
   }
 
@@ -1468,7 +1539,7 @@
 
   if (landingSceneOpenAc2Button) {
     landingSceneOpenAc2Button.addEventListener('click', () => {
-      handleCreateButtonClick();
+      handleSceneOpenAc2Click();
     });
   }
 
