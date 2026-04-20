@@ -8,12 +8,15 @@
   };
 
   const createButton = document.getElementById('create-for-free-button');
+  const enterDemoSceneButton = document.getElementById('enter-demo-scene-button');
+  const getSdkButton = document.getElementById('get-sdk-button');
   const pageShell = document.querySelector('.page');
   const heroShell = document.querySelector('.hero-shell');
   const userPill = document.getElementById('landing-user-pill');
   const userPillText = document.getElementById('landing-user-pill-text');
   const forgetMeButton = document.getElementById('landing-forget-me-button');
   const landingPillOpenAc2Button = document.getElementById('landing-pill-open-ac2-button');
+  const landingPillCreateAvatarButton = document.getElementById('landing-pill-create-avatar-button');
   const landingPillSaveAccountButton = document.getElementById('landing-pill-save-account-button');
   const embeddedScene = document.getElementById('embedded-demo-scene');
   const landingSceneCanvas = document.getElementById('landing-scene-canvas');
@@ -190,17 +193,34 @@
       return;
     }
 
-    createButton.textContent = hasAuthenticatedUser() ? 'Enter Demo Scene' : 'Create for Free!';
+    const isGuestWithDraft = shouldShowDraftSaveAction();
+    createButton.textContent = hasAuthenticatedUser()
+      ? 'Enter Demo Scene'
+      : (isGuestWithDraft ? 'Create New Avatar' : 'Create for Free!');
+
+    if (enterDemoSceneButton) {
+      enterDemoSceneButton.hidden = !isGuestWithDraft;
+    }
+
+    if (getSdkButton) {
+      getSdkButton.hidden = isGuestWithDraft;
+    }
   }
 
   function syncSceneActionButtons() {
     const sceneVisible = Boolean(embeddedScene && !embeddedScene.hidden);
-    const showGuestSaveAction = sceneVisible && shouldShowDraftSaveAction();
+    const showGuestDraftActions = shouldShowDraftSaveAction();
+    const showGuestSaveAction = showGuestDraftActions;
+    const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
     const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
       landingPillOpenAc2Button.hidden = !showAvatarAccess;
+    }
+
+    if (landingPillCreateAvatarButton) {
+      landingPillCreateAvatarButton.hidden = !showGuestCreateAvatarAction;
     }
 
     if (embeddedSceneBackButton) {
@@ -1371,6 +1391,11 @@
       return;
     }
 
+    if (shouldShowDraftSaveAction()) {
+      launchDraftCreator();
+      return;
+    }
+
     if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
       reopenCreator();
       return;
@@ -1511,6 +1536,12 @@
     createButton.addEventListener('click', handleCreateButtonClick);
   }
 
+  if (enterDemoSceneButton) {
+    enterDemoSceneButton.addEventListener('click', () => {
+      showEmbeddedDemoScene();
+    });
+  }
+
   if (forgetMeButton) {
     forgetMeButton.addEventListener('click', () => {
       handleUserPillAction();
@@ -1573,6 +1604,12 @@
   if (landingPillOpenAc2Button) {
     landingPillOpenAc2Button.addEventListener('click', () => {
       handleSceneOpenAc2Click();
+    });
+  }
+
+  if (landingPillCreateAvatarButton) {
+    landingPillCreateAvatarButton.addEventListener('click', () => {
+      launchDraftCreator();
     });
   }
 
