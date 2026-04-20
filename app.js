@@ -232,7 +232,7 @@
 
     if (shouldShowDraftSaveAction()) {
       userPill.hidden = false;
-      userPillText.textContent = 'Playing as guest';
+      userPillText.textContent = "You're in Guest Mode";
       if (forgetMeButton) {
         forgetMeButton.hidden = true;
         forgetMeButton.textContent = 'Forget me';
