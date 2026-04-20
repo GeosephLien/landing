@@ -31,7 +31,6 @@
   const verificationResendButton = document.getElementById('verification-resend-button');
   const verificationDownloadButton = document.getElementById('verification-download-button');
   const downloadCompletePanel = document.getElementById('download-complete-panel');
-  const downloadCompleteStatus = document.getElementById('download-complete-status');
   const downloadCompleteDownloadButton = document.getElementById('download-complete-download-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
@@ -303,13 +302,6 @@
   }
 
   function setDownloadCompleteState(message, options) {
-    const nextOptions = options || {};
-    if (downloadCompleteStatus) {
-      downloadCompleteStatus.textContent = message || 'Download complete. Play your avatar when ready.';
-      downloadCompleteStatus.classList.toggle('is-error', nextOptions.tone === 'error');
-      downloadCompleteStatus.classList.toggle('is-success', nextOptions.tone !== 'error');
-    }
-
     if (downloadCompleteDownloadButton) {
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading ? 'Downloading...' : 'Download VRM';

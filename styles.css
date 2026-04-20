@@ -924,7 +924,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #verification-send-button,
-#verification-resend-button {
+#verification-resend-button,
+#download-complete-play-button {
   min-height: 48px;
   min-width: 170px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -941,7 +942,9 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-send-button:hover,
 #verification-send-button:focus-visible,
 #verification-resend-button:hover,
-#verification-resend-button:focus-visible {
+#verification-resend-button:focus-visible,
+#download-complete-play-button:hover,
+#download-complete-play-button:focus-visible {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
@@ -949,13 +952,15 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #verification-send-button:disabled,
-#verification-resend-button:disabled {
+#verification-resend-button:disabled,
+#download-complete-play-button:disabled {
   cursor: wait;
   opacity: 0.6;
   transform: none;
 }
 
-#verification-download-button {
+#verification-download-button,
+#download-complete-download-button {
   width: 100%;
 }
 
@@ -964,12 +969,14 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   min-width: 0;
 }
 
-#verification-resend-button {
+#verification-resend-button,
+#download-complete-play-button {
   width: 100%;
   min-width: 0;
 }
 
 #verification-download-button:disabled,
+#download-complete-download-button:disabled,
 #download-complete-play-button:disabled {
   cursor: not-allowed;
   opacity: 0.54;
@@ -978,6 +985,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #verification-download-button:disabled::before,
+#download-complete-download-button:disabled::before,
 #download-complete-play-button:disabled::before {
   opacity: 0.16;
 }
