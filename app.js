@@ -42,6 +42,7 @@
     claimInFlight: false,
     claimPromise: null,
     claimError: '',
+    claimErrorCode: '',
     lastClaimedTenantId: '',
     launchPending: false,
     resumeToCreator: false,
@@ -284,6 +285,16 @@
     window.location.href = getDemoSceneUrl();
   }
 
+  function getClaimFailureMessage(error) {
+    if (error && error.code === 'AVATAR_LIMIT_REACHED') {
+      return "Your avatar was downloaded, but it couldn't be added to your account because you've reached the 6-avatar limit. You can still play with your existing avatars.";
+    }
+
+    return error && error.message
+      ? error.message
+      : 'Failed to finalize avatar ownership.';
+  }
+
   function queueClaimDraftAvatar() {
     if (state.claimPromise) {
       return state.claimPromise;
@@ -291,6 +302,7 @@
 
     state.claimInFlight = true;
     state.claimError = '';
+    state.claimErrorCode = '';
     setDownloadCompleteState('Finalizing your avatar for play...', { tone: 'success' });
 
     state.claimPromise = claimDraftAvatar()
@@ -305,7 +317,8 @@
         return claim;
       })
         .catch((error) => {
-          state.claimError = error && error.message ? error.message : 'Failed to finalize avatar ownership.';
+          state.claimErrorCode = error && error.code ? error.code : '';
+          state.claimError = getClaimFailureMessage(error);
           throw error;
         })
       .finally(() => {
@@ -630,8 +643,12 @@
     });
 
     const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload || !payload.ok) {
-      throw new Error(payload && payload.message ? payload.message : 'Failed to claim the draft avatar.');
+      if (!response.ok || !payload || !payload.ok) {
+      const error = new Error(payload && payload.message ? payload.message : 'Failed to claim the draft avatar.');
+      if (payload && payload.code) {
+        error.code = payload.code;
+      }
+      throw error;
     }
 
     return payload;
@@ -1162,13 +1179,14 @@
     downloadCompletePlayButton.addEventListener('click', async () => {
       try {
         await queueClaimDraftAvatar();
-        closeVerificationModal();
-        closeAc2Modal();
-        navigateToDemoScene();
       } catch (error) {
         console.error(error);
-        setDownloadCompleteState(error.message || 'Failed to prepare avatar for play.', { tone: 'error' });
+        setDownloadCompleteState(getClaimFailureMessage(error), { tone: 'error' });
       }
+
+      closeVerificationModal();
+      closeAc2Modal();
+      navigateToDemoScene();
     });
   }
 
