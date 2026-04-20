@@ -13,13 +13,13 @@
   const userPill = document.getElementById('landing-user-pill');
   const userPillText = document.getElementById('landing-user-pill-text');
   const forgetMeButton = document.getElementById('landing-forget-me-button');
+  const landingPillOpenAc2Button = document.getElementById('landing-pill-open-ac2-button');
+  const landingPillBackButton = document.getElementById('landing-pill-back-button');
+  const landingPillSaveAccountButton = document.getElementById('landing-pill-save-account-button');
   const embeddedScene = document.getElementById('embedded-demo-scene');
   const landingSceneCanvas = document.getElementById('landing-scene-canvas');
   const landingSceneSessionStatus = document.getElementById('landing-scene-session-status');
   const landingSceneAvatarStatus = document.getElementById('landing-scene-avatar-status');
-  const landingSceneOpenAc2Button = document.getElementById('landing-scene-open-ac2-button');
-  const landingSceneBackButton = document.getElementById('landing-scene-back-button');
-  const landingSceneSaveAccountButton = document.getElementById('landing-scene-save-account-button');
   const ac2Modal = document.getElementById('ac2-modal');
   const ac2Frame = document.getElementById('ac2-frame');
   const verificationModal = document.getElementById('verification-modal');
@@ -194,18 +194,25 @@
   }
 
   function syncSceneActionButtons() {
-    const showGuestSaveAction = shouldShowDraftSaveAction();
+    const sceneVisible = Boolean(embeddedScene && !embeddedScene.hidden);
+    const showGuestSaveAction = sceneVisible && shouldShowDraftSaveAction();
+    const showSceneControls = sceneVisible && hasAuthenticatedUser();
 
-    if (landingSceneOpenAc2Button) {
-      landingSceneOpenAc2Button.hidden = showGuestSaveAction;
+    if (landingPillOpenAc2Button) {
+      landingPillOpenAc2Button.hidden = !showSceneControls;
     }
 
-    if (landingSceneBackButton) {
-      landingSceneBackButton.hidden = showGuestSaveAction;
+    if (landingPillBackButton) {
+      landingPillBackButton.hidden = !showSceneControls;
     }
 
-    if (landingSceneSaveAccountButton) {
-      landingSceneSaveAccountButton.hidden = !showGuestSaveAction;
+    if (landingPillSaveAccountButton) {
+      landingPillSaveAccountButton.hidden = !showGuestSaveAction;
+      landingPillSaveAccountButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
+    }
+
+    if (forgetMeButton) {
+      forgetMeButton.hidden = sceneVisible || shouldShowDraftSaveAction();
     }
   }
 
@@ -221,7 +228,6 @@
       userPillText.textContent = `Hi, ${normalized}`;
       userPill.hidden = false;
       if (forgetMeButton) {
-        forgetMeButton.hidden = false;
         forgetMeButton.textContent = 'Forget me';
         forgetMeButton.disabled = state.forgettingUser;
       }
@@ -234,7 +240,6 @@
       userPill.hidden = false;
       userPillText.textContent = "You're in Guest Mode";
       if (forgetMeButton) {
-        forgetMeButton.hidden = true;
         forgetMeButton.textContent = 'Forget me';
         forgetMeButton.disabled = false;
       }
@@ -246,7 +251,6 @@
     userPill.hidden = true;
     userPillText.textContent = 'Hi,';
     if (forgetMeButton) {
-      forgetMeButton.hidden = false;
       forgetMeButton.textContent = 'Forget me';
       forgetMeButton.disabled = false;
     }
@@ -1559,21 +1563,21 @@
     });
   }
 
-  if (landingSceneOpenAc2Button) {
-    landingSceneOpenAc2Button.addEventListener('click', () => {
+  if (landingPillOpenAc2Button) {
+    landingPillOpenAc2Button.addEventListener('click', () => {
       handleSceneOpenAc2Click();
     });
   }
 
-  if (landingSceneBackButton) {
-    landingSceneBackButton.addEventListener('click', () => {
+  if (landingPillBackButton) {
+    landingPillBackButton.addEventListener('click', () => {
       closeAc2Modal();
       hideEmbeddedDemoScene();
     });
   }
 
-  if (landingSceneSaveAccountButton) {
-    landingSceneSaveAccountButton.addEventListener('click', () => {
+  if (landingPillSaveAccountButton) {
+    landingPillSaveAccountButton.addEventListener('click', () => {
       openSaveAccountFlow();
     });
   }

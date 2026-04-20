@@ -33,6 +33,9 @@
   <div id="landing-user-pill" class="landing-user-pill" hidden aria-live="polite">
     <span id="landing-user-pill-text">Hi,</span>
     <button id="landing-forget-me-button" class="landing-user-pill-action" type="button">Forget me</button>
+    <button id="landing-pill-open-ac2-button" class="landing-user-pill-action" type="button" hidden>Open AC2</button>
+    <button id="landing-pill-back-button" class="landing-user-pill-action" type="button" hidden>Back to Landing</button>
+    <button id="landing-pill-save-account-button" class="landing-user-pill-action" type="button" hidden>Create account to save your avatar</button>
   </div>
   <div class="page">
     <main class="hero-shell">
@@ -99,15 +102,10 @@
       </div>
 
       <div class="embedded-scene-actions">
-        <button id="landing-scene-open-ac2-button" class="hero-cta embedded-scene-open-button" type="button">Open AC2</button>
-        <button id="landing-scene-back-button" class="hero-secondary-cta embedded-scene-back-button" type="button">Back to Landing</button>
-        <button id="landing-scene-save-account-button" class="hero-cta embedded-scene-open-button" type="button" hidden>Create account to save your avatar</button>
       </div>
 
       <p class="embedded-scene-controls">Drag to orbit the camera. Use <code>W</code> <code>A</code> <code>S</code> <code>D</code> to move the avatar.</p>
     </section>
-
-    <div class="embedded-scene-help">AC2 selection sync stays active here: selecting an avatar in AC2 swaps the current VRM without leaving landing.</div>
   </section>
 
   <div id="ac2-modal" class="ac2-modal-host" hidden aria-hidden="true">

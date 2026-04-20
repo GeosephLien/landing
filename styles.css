@@ -820,23 +820,6 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   line-height: 1.55;
 }
 
-.embedded-scene-help {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 10;
-  max-width: min(440px, calc(100vw - 48px));
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(10, 15, 28, 0.64);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(236, 241, 255, 0.84);
-  font-size: 0.82rem;
-  line-height: 1.5;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
 .flow-modal,
 .ac2-modal-host {
   position: fixed;
@@ -1231,9 +1214,4 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     width: calc(100vw - 32px);
   }
 
-  .embedded-scene-help {
-    right: 16px;
-    bottom: 16px;
-    max-width: calc(100vw - 32px);
-  }
 }
