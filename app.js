@@ -197,9 +197,14 @@
     const sceneVisible = Boolean(embeddedScene && !embeddedScene.hidden);
     const showGuestSaveAction = sceneVisible && shouldShowDraftSaveAction();
     const showAvatarAccess = hasAuthenticatedUser();
+    const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
       landingPillOpenAc2Button.hidden = !showAvatarAccess;
+    }
+
+    if (embeddedSceneBackButton) {
+      embeddedSceneBackButton.hidden = !showSceneBackButton;
     }
 
     if (landingPillSaveAccountButton) {
@@ -902,7 +907,7 @@
     closeVerificationModal();
     closeAc2Modal();
     state.forgettingUser = false;
-    renderUserPill('');
+    window.location.reload();
   }
 
   function handleUserPillAction() {
