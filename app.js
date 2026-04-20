@@ -9,6 +9,7 @@
 
   const createButton = document.getElementById('create-for-free-button');
   const pageShell = document.querySelector('.page');
+  const heroShell = document.querySelector('.hero-shell');
   const userPill = document.getElementById('landing-user-pill');
   const userPillText = document.getElementById('landing-user-pill-text');
   const forgetMeButton = document.getElementById('landing-forget-me-button');
@@ -170,6 +171,14 @@
     return String(value || '').trim().toLowerCase();
   }
 
+  function syncPrimaryActionButton() {
+    if (!createButton) {
+      return;
+    }
+
+    createButton.textContent = hasAuthenticatedUser() ? 'Play It' : 'Create for Free!';
+  }
+
   function renderUserPill(email) {
     const normalized = normalizeEmail(email);
     state.currentUserEmail = normalized;
@@ -184,6 +193,7 @@
       if (forgetMeButton) {
         forgetMeButton.disabled = false;
       }
+      syncPrimaryActionButton();
       return;
     }
 
@@ -192,6 +202,7 @@
     if (forgetMeButton) {
       forgetMeButton.disabled = state.forgettingUser;
     }
+    syncPrimaryActionButton();
   }
 
   function hasAuthenticatedUser() {
@@ -499,8 +510,8 @@
     if (embeddedScene) {
       embeddedScene.hidden = false;
     }
-    if (pageShell) {
-      pageShell.hidden = true;
+    if (heroShell) {
+      heroShell.hidden = true;
     }
 
     try {
@@ -518,8 +529,8 @@
     if (embeddedScene) {
       embeddedScene.hidden = true;
     }
-    if (pageShell) {
-      pageShell.hidden = false;
+    if (heroShell) {
+      heroShell.hidden = false;
     }
   }
 
@@ -1261,13 +1272,13 @@
   }
 
   function handleCreateButtonClick() {
-    if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
-      reopenCreator();
+    if (hasAuthenticatedUser()) {
+      showEmbeddedDemoScene();
       return;
     }
 
-    if (hasAuthenticatedUser()) {
-      launchAuthenticatedViewer();
+    if (state.resumeToCreator && ac2Frame.getAttribute('src')) {
+      reopenCreator();
       return;
     }
 
@@ -1479,5 +1490,6 @@
     state.tenantId = rememberedTenant;
   }
 
+  syncPrimaryActionButton();
   bootstrapCurrentUser();
 })();
