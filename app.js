@@ -1065,12 +1065,6 @@
       state.uploadStarted = true;
       state.uploadReady = false;
       state.pendingVrmBlob = null;
-      if (!state.authenticationPassed) {
-        openVerificationModal({
-          resetForm: true,
-          focusField: true
-        });
-      }
       return;
     }
 
