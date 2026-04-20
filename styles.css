@@ -892,11 +892,31 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   display: none;
 }
 
+.flow-step-label {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(143, 255, 216, 0.84);
+}
+
+.flow-step-note {
+  margin: 0 0 14px;
+  color: rgba(229, 236, 255, 0.78);
+}
+
+#verification-step-email[hidden],
+#verification-step-code[hidden] {
+  display: none;
+}
+
 .flow-inline-action {
   display: flex;
   margin-top: 14px;
 }
 
+#verification-send-button,
 #verification-resend-button {
   min-height: 48px;
   min-width: 170px;
@@ -911,6 +931,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
+#verification-send-button:hover,
+#verification-send-button:focus-visible,
 #verification-resend-button:hover,
 #verification-resend-button:focus-visible {
   background: rgba(255, 255, 255, 0.12);
@@ -919,6 +941,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   outline: none;
 }
 
+#verification-send-button:disabled,
 #verification-resend-button:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -1003,6 +1026,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     gap: 6px;
   }
 
+  #verification-send-button,
   #verification-resend-button,
   .flow-primary,
   .flow-secondary {

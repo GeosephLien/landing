@@ -104,31 +104,42 @@
         <p class="flow-eyebrow">Avatar Ready</p>
         <h2 id="verification-title">Confirm and download your VRM</h2>
         <p id="verification-description">
-          Enter the 4-digit code sent to your email. After download, the demo scene will open with the same tenant storage.
+          Verify your email in two steps, then download your VRM. After download, the demo scene will open with the same tenant storage.
         </p>
       </div>
 
       <div id="verification-workflow">
-        <label class="flow-field">
-          <span>Email</span>
-          <input id="verification-email-input" type="email" autocomplete="email" placeholder="openme@htc.com">
-        </label>
+        <div id="verification-step-email">
+          <p class="flow-step-label">Step 1 of 2</p>
+          <label class="flow-field">
+            <span>Email</span>
+            <input id="verification-email-input" type="email" autocomplete="email" placeholder="openme@htc.com">
+          </label>
 
-        <div class="flow-inline-action">
-          <button id="verification-resend-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
+          <div class="flow-inline-action">
+            <button id="verification-send-button" class="hero-secondary-cta flow-secondary" type="button">Send Code</button>
+          </div>
         </div>
 
-        <label class="flow-field">
-          <span>Verification Code</span>
-          <input
-            id="verification-code-input"
-            type="text"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="4"
-            placeholder="0000"
-          >
-        </label>
+        <div id="verification-step-code" hidden>
+          <p class="flow-step-label">Step 2 of 2</p>
+          <p id="verification-code-help" class="flow-step-note"></p>
+          <label class="flow-field">
+            <span>Verification Code</span>
+            <input
+              id="verification-code-input"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="4"
+              placeholder="0000"
+            >
+          </label>
+
+          <div class="flow-inline-action">
+            <button id="verification-resend-button" class="hero-secondary-cta flow-secondary" type="button">Resend Code</button>
+          </div>
+        </div>
 
         <p id="verification-status" class="flow-status" aria-live="polite"></p>
         <div id="verification-progress" class="flow-progress" hidden aria-hidden="true">
