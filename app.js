@@ -284,7 +284,7 @@
 
     if (!hasAuthenticatedUser()) {
       userPill.hidden = false;
-      userPillText.textContent = "You're in Guest Mode";
+      userPillText.textContent = "Welcome! You're Guest Mode";
       if (forgetMeButton) {
         forgetMeButton.textContent = 'Forget me';
         forgetMeButton.disabled = false;
@@ -420,7 +420,7 @@
 
   function getVerificationTitleText() {
     if (state.verificationPanelMode === 'signup-complete') {
-      return 'Full Access Ready';
+      return 'Congratulations!';
     }
 
     if (state.verificationPanelMode === 'ready') {
@@ -475,7 +475,11 @@
   function showSignupCompletePanel(message, options) {
     setVerificationPanelMode('signup-complete');
     setVerificationProgress(0, 'Waiting to continue...', { hidden: true });
-    setStatus(verificationStatus, message || 'Congratulations, you now have Full Access.', options && options.tone ? options.tone : 'success');
+    setStatus(
+      verificationStatus,
+      "You're all set! You now have full access to Avatar Creator 2.0.",
+      options && options.tone ? options.tone : 'success'
+    );
   }
 
   function setDownloadCompleteState(message, options) {

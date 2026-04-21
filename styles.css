@@ -1045,7 +1045,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 .flow-complete-copy {
-  display: grid;
+  display: none;
   gap: 10px;
   margin-top: 20px;
 }
