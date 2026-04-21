@@ -17,6 +17,7 @@
   const forgetMeButton = document.getElementById('landing-forget-me-button');
   const landingPillOpenAc2Button = document.getElementById('landing-pill-open-ac2-button');
   const landingPillCreateAvatarButton = document.getElementById('landing-pill-create-avatar-button');
+  const landingPillDownloadAvatarButton = document.getElementById('landing-pill-download-avatar-button');
   const landingPillSaveAccountButton = document.getElementById('landing-pill-save-account-button');
   const embeddedScene = document.getElementById('embedded-demo-scene');
   const landingSceneCanvas = document.getElementById('landing-scene-canvas');
@@ -213,6 +214,7 @@
     const showGuestSaveAction = showGuestDraftActions;
     const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
+    const showSceneDownloadAction = sceneVisible && (showAvatarAccess || hasDraftAvatarReady());
     const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
@@ -221,6 +223,12 @@
 
     if (landingPillCreateAvatarButton) {
       landingPillCreateAvatarButton.hidden = !showGuestCreateAvatarAction;
+    }
+
+    if (landingPillDownloadAvatarButton) {
+      landingPillDownloadAvatarButton.hidden = !showSceneDownloadAction;
+      landingPillDownloadAvatarButton.disabled = state.downloading;
+      landingPillDownloadAvatarButton.textContent = state.downloading ? 'Downloading...' : 'Download This Avatar';
     }
 
     if (embeddedSceneBackButton) {
@@ -1224,6 +1232,144 @@
     }
   }
 
+  function inferAvatarFilename(value) {
+    const rawValue = String(value || '').trim();
+    const lastSegment = rawValue ? rawValue.split('/').pop() : '';
+    const baseName = (lastSegment || rawValue || 'avatar.vrm').replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '_');
+    return /\.vrm$/i.test(baseName) ? baseName : `${baseName}.vrm`;
+  }
+
+  function getSceneAvatarMeta() {
+    if (embeddedVrmScene && typeof embeddedVrmScene.getCurrentAvatarMeta === 'function') {
+      const sceneMeta = embeddedVrmScene.getCurrentAvatarMeta();
+      if (sceneMeta && sceneMeta.key) {
+        return {
+          key: sceneMeta.key,
+          fileName: inferAvatarFilename(sceneMeta.displayName || sceneMeta.fileName || sceneMeta.key)
+        };
+      }
+    }
+
+    if (state.pendingAvatarKey) {
+      return {
+        key: state.pendingAvatarKey,
+        fileName: inferAvatarFilename(state.pendingFileName || state.pendingAvatarKey)
+      };
+    }
+
+    return null;
+  }
+
+  async function resolveCurrentDownloadableAvatar() {
+    const sceneMeta = getSceneAvatarMeta();
+    if (sceneMeta) {
+      return sceneMeta;
+    }
+
+    if (!hasAuthenticatedUser()) {
+      return null;
+    }
+
+    const activeKey = await fetchActiveAvatar();
+    if (!activeKey) {
+      return null;
+    }
+
+    return {
+      key: activeKey,
+      fileName: inferAvatarFilename(activeKey)
+    };
+  }
+
+  async function fetchAvatarBlobForDownload(key) {
+    const result = await fetchDownloadUrl(key);
+    const downloadUrl = result && result.url ? result.url : '';
+    if (!downloadUrl) {
+      throw new Error('No download URL is available for this avatar.');
+    }
+
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download the avatar file (${response.status}).`);
+    }
+
+    return response.blob();
+  }
+
+  async function handleSceneAvatarDownload() {
+    if (state.downloading) {
+      return;
+    }
+
+    let avatar = null;
+    try {
+      avatar = await resolveCurrentDownloadableAvatar();
+    } catch (error) {
+      console.error(error);
+      if (embeddedVrmScene) {
+        embeddedVrmScene.setAvatarText(error.message || 'Unable to resolve the active avatar.');
+      }
+      return;
+    }
+
+    if (!avatar || !avatar.key) {
+      if (embeddedVrmScene) {
+        embeddedVrmScene.setAvatarText('No active avatar is available to download.');
+      }
+      return;
+    }
+
+    let fileHandle = null;
+    try {
+      fileHandle = await requestFileHandle(avatar.fileName);
+    } catch (error) {
+      if (isFilePickerAbortError(error)) {
+        return;
+      }
+
+      if (embeddedVrmScene) {
+        embeddedVrmScene.setAvatarText(error.message || 'Unable to open the file picker.');
+      }
+      return;
+    }
+
+    state.downloading = true;
+    syncVerificationButtons();
+    syncSceneActionButtons();
+    if (embeddedVrmScene) {
+      embeddedVrmScene.setAvatarText(`Preparing ${avatar.fileName}...`);
+    }
+
+    try {
+      const blob = await fetchAvatarBlobForDownload(avatar.key);
+
+      try {
+        await saveBlobWithFileHandle(blob, fileHandle);
+      } catch (error) {
+        if (isFilePickerAbortError(error)) {
+          if (embeddedVrmScene) {
+            embeddedVrmScene.setAvatarText('Download was cancelled. You can try again.');
+          }
+          return;
+        }
+        throw error;
+      }
+
+      if (embeddedVrmScene) {
+        embeddedVrmScene.setAvatarText(`${avatar.fileName} downloaded.`);
+      }
+    } catch (error) {
+      console.error(error);
+      if (embeddedVrmScene) {
+        embeddedVrmScene.setAvatarText(error.message || 'VRM download failed.');
+      }
+    } finally {
+      state.downloading = false;
+      syncVerificationButtons();
+      syncSceneActionButtons();
+    }
+  }
+
   async function launchAuthenticatedViewer() {
     if (createButton) {
       createButton.disabled = true;
@@ -1623,6 +1769,12 @@
   if (landingPillSaveAccountButton) {
     landingPillSaveAccountButton.addEventListener('click', () => {
       openSaveAccountFlow();
+    });
+  }
+
+  if (landingPillDownloadAvatarButton) {
+    landingPillDownloadAvatarButton.addEventListener('click', () => {
+      handleSceneAvatarDownload();
     });
   }
 
