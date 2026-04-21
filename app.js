@@ -620,11 +620,18 @@
     setSceneSessionText(session.mode === 'claimed'
       ? `Loading avatar for ${nextSceneTenant}...`
       : `Loading draft avatar ${nextSceneTenant}...`);
-    await sceneInstance.loadInitialAvatar(
+    const hasAvatar = await sceneInstance.loadInitialAvatar(
       () => fetchVrmFiles(),
       () => fetchActiveAvatar(),
       (key) => fetchDownloadUrl(key)
     );
+    if (!hasAvatar) {
+      setSceneSessionText(session.mode === 'claimed'
+        ? `No avatars found for ${nextSceneTenant}. Opening AC2...`
+        : `No draft avatar found for ${nextSceneTenant}. Opening AC2...`);
+      handleSceneOpenAc2Click();
+      return sceneInstance;
+    }
     embeddedSceneLoadedTenant = nextSceneTenant;
     setSceneSessionText(session.mode === 'claimed'
       ? `Session ready for ${nextSceneTenant}`
