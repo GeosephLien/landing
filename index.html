@@ -36,7 +36,7 @@
     <button id="landing-pill-open-ac2-button" class="landing-user-pill-action landing-user-pill-action-primary" type="button" hidden>My Avatars</button>
     <button id="landing-pill-create-avatar-button" class="landing-user-pill-action" type="button" hidden>Create New Avatar</button>
     <button id="landing-pill-download-avatar-button" class="landing-user-pill-action" type="button" hidden>Download This Avatar</button>
-    <button id="landing-pill-save-account-button" class="landing-user-pill-action landing-user-pill-action-primary" type="button" hidden>Sign Up to Download Your Avatar</button>
+    <button id="landing-pill-save-account-button" class="landing-user-pill-action" type="button" hidden>Sign Up</button>
   </div>
   <div class="page">
     <main class="hero-shell">
@@ -87,6 +87,12 @@
 
   <section id="embedded-demo-scene" class="embedded-scene" hidden aria-label="Embedded demo scene">
     <canvas id="landing-scene-canvas" class="embedded-scene-canvas" aria-label="Avatar demo scene"></canvas>
+    <div id="landing-scene-loading" class="embedded-scene-loading" hidden>
+      <div class="embedded-scene-loading-content" role="status" aria-live="polite">
+        <div class="embedded-scene-loading-spinner" aria-hidden="true"></div>
+        <span id="landing-scene-loading-text" class="embedded-scene-loading-text">Loading avatar...</span>
+      </div>
+    </div>
     <button id="embedded-scene-back-button" class="embedded-scene-back-button" type="button" aria-label="Back to landing">
       <img src="images/Icon_back.svg" alt="" aria-hidden="true">
     </button>
@@ -168,6 +174,17 @@
 
         <div class="flow-inline-action" id="verification-resend-row">
           <button id="verification-resend-button" class="hero-secondary-cta flow-secondary" type="button">Resend Code</button>
+        </div>
+      </div>
+
+      <div id="signup-complete-panel" hidden>
+        <div class="flow-complete-copy">
+          <p class="flow-step-label">Full Access Unlocked</p>
+          <p class="flow-step-note">Congratulations, you're all set.</p>
+          <p class="flow-step-note">You now have Full Access and can start using your avatar experience.</p>
+        </div>
+        <div class="flow-actions">
+          <button id="signup-complete-done-button" class="hero-cta flow-primary" type="button">Done!</button>
         </div>
       </div>
 

@@ -1,8 +1,12 @@
 (function () {
+  const urlParams = new URLSearchParams(window.location.search);
+  const runtimeApiBase = urlParams.get('apiBase');
+  const runtimeAc2Origin = urlParams.get('ac2Origin');
+  const runtimeAc2Url = urlParams.get('ac2Url');
   const SYSTEM_DEFAULTS = {
-    apiBase: 'https://ac2-host-api-avatar-page.kuanyi-lien.workers.dev',
-    ac2Origin: 'https://geosephlien.github.io',
-    ac2Url: 'https://geosephlien.github.io/ac2/?embedded=1&uiMode=modal',
+    apiBase: runtimeApiBase || 'https://ac2-host-api-avatar-page.kuanyi-lien.workers.dev',
+    ac2Origin: runtimeAc2Origin || 'https://geosephlien.github.io',
+    ac2Url: runtimeAc2Url || 'https://geosephlien.github.io/ac2/?embedded=1&uiMode=modal',
     locale: 'zh-TW',
     storageTenantKey: 'ac2-landing-tenant'
   };
@@ -21,6 +25,8 @@
   const landingPillSaveAccountButton = document.getElementById('landing-pill-save-account-button');
   const embeddedScene = document.getElementById('embedded-demo-scene');
   const landingSceneCanvas = document.getElementById('landing-scene-canvas');
+  const landingSceneLoading = document.getElementById('landing-scene-loading');
+  const landingSceneLoadingText = document.getElementById('landing-scene-loading-text');
   const embeddedSceneBackButton = document.getElementById('embedded-scene-back-button');
   const landingSceneSessionStatus = document.getElementById('landing-scene-session-status');
   const landingSceneAvatarStatus = document.getElementById('landing-scene-avatar-status');
@@ -43,6 +49,9 @@
   const verificationSendButton = document.getElementById('verification-send-button');
   const verificationResendButton = document.getElementById('verification-resend-button');
   const verificationDownloadButton = document.getElementById('verification-download-button');
+  const verificationCloseButton = verificationModal ? verificationModal.querySelector('.flow-close') : null;
+  const signupCompletePanel = document.getElementById('signup-complete-panel');
+  const signupCompleteDoneButton = document.getElementById('signup-complete-done-button');
   const downloadCompletePanel = document.getElementById('download-complete-panel');
   const downloadCompleteDownloadButton = document.getElementById('download-complete-download-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
@@ -121,6 +130,7 @@
   let embeddedVrmScene = null;
   let embeddedSceneInitPromise = null;
   let embeddedSceneLoadedTenant = '';
+  let embeddedSceneLoadingCount = 0;
 
   function setStatus(element, message, tone) {
     if (!element) {
@@ -190,6 +200,10 @@
     return hasDraftAvatarReady() && !hasAuthenticatedUser();
   }
 
+  function isSignupVerificationFlow() {
+    return state.verificationFlow === 'signup';
+  }
+
   function syncPrimaryActionButton() {
     if (!createButton) {
       return;
@@ -212,7 +226,7 @@
   function syncSceneActionButtons() {
     const sceneVisible = Boolean(embeddedScene && !embeddedScene.hidden);
     const showGuestDraftActions = shouldShowDraftSaveAction();
-    const showGuestSaveAction = showGuestDraftActions;
+    const showGuestSaveAction = !hasAuthenticatedUser();
     const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
     const showSceneDownloadAction = false;
@@ -240,7 +254,7 @@
     if (landingPillSaveAccountButton) {
       landingPillSaveAccountButton.hidden = !showGuestSaveAction;
       landingPillSaveAccountButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
-      landingPillSaveAccountButton.textContent = 'Sign Up to Download Your Avatar';
+      landingPillSaveAccountButton.textContent = 'Sign Up';
     }
 
     if (forgetMeButton) {
@@ -268,7 +282,7 @@
       return;
     }
 
-    if (shouldShowDraftSaveAction()) {
+    if (!hasAuthenticatedUser()) {
       userPill.hidden = false;
       userPillText.textContent = "You're in Guest Mode";
       if (forgetMeButton) {
@@ -405,15 +419,27 @@
   }
 
   function getVerificationTitleText() {
+    if (state.verificationPanelMode === 'signup-complete') {
+      return 'Full Access Ready';
+    }
+
     if (state.verificationPanelMode === 'ready') {
       return isSdkVerificationFlow() ? 'Your SDK Sample Is Ready' : 'Avatar Ready';
+    }
+
+    if (isSignupVerificationFlow()) {
+      return state.verificationStep === 'code' ? 'Confirm Full Access' : 'Get Full Access';
     }
 
     return isSdkVerificationFlow() ? 'Verify to Download SDK' : 'Create Account to Save Avatar';
   }
 
   function setVerificationPanelMode(mode) {
-    state.verificationPanelMode = mode === 'ready' ? 'ready' : 'verify';
+    if (mode === 'ready' || mode === 'signup-complete') {
+      state.verificationPanelMode = mode;
+    } else {
+      state.verificationPanelMode = 'verify';
+    }
 
     if (verificationTitle) {
       verificationTitle.textContent = getVerificationTitleText();
@@ -423,9 +449,33 @@
       verificationWorkflow.hidden = state.verificationPanelMode !== 'verify';
     }
 
+    if (signupCompletePanel) {
+      signupCompletePanel.hidden = state.verificationPanelMode !== 'signup-complete';
+    }
+
     if (downloadCompletePanel) {
       downloadCompletePanel.hidden = state.verificationPanelMode !== 'ready';
     }
+
+    syncVerificationCloseButton();
+  }
+
+  function syncVerificationCloseButton() {
+    if (!verificationCloseButton) {
+      return;
+    }
+
+    const hideForCompletion = state.verificationPanelMode === 'signup-complete'
+      || (state.verificationPanelMode === 'ready' && !isSdkVerificationFlow());
+    const hideWhileProcessing = state.verifyingCode || state.claimInFlight;
+
+    verificationCloseButton.hidden = hideForCompletion || hideWhileProcessing;
+  }
+
+  function showSignupCompletePanel(message, options) {
+    setVerificationPanelMode('signup-complete');
+    setVerificationProgress(0, 'Waiting to continue...', { hidden: true });
+    setStatus(verificationStatus, message || 'Congratulations, you now have Full Access.', options && options.tone ? options.tone : 'success');
   }
 
   function setDownloadCompleteState(message, options) {
@@ -471,6 +521,29 @@
   function setSceneSessionText(value) {
     if (landingSceneSessionStatus) {
       landingSceneSessionStatus.textContent = value;
+    }
+  }
+
+  function setEmbeddedSceneLoading(isLoading, message) {
+    if (!landingSceneLoading) {
+      return;
+    }
+
+    if (isLoading) {
+      embeddedSceneLoadingCount += 1;
+      landingSceneLoading.hidden = false;
+      if (landingSceneLoadingText) {
+        landingSceneLoadingText.textContent = message || 'Loading avatar...';
+      }
+      return;
+    }
+
+    embeddedSceneLoadingCount = Math.max(0, embeddedSceneLoadingCount - 1);
+    if (embeddedSceneLoadingCount === 0) {
+      landingSceneLoading.hidden = true;
+      if (landingSceneLoadingText) {
+        landingSceneLoadingText.textContent = 'Loading avatar...';
+      }
     }
   }
 
@@ -592,7 +665,8 @@
       const sceneModule = await vrmSceneModulePromise;
       embeddedVrmScene = sceneModule.createVrmScene({
         canvas: landingSceneCanvas,
-        avatarStatus: landingSceneAvatarStatus
+        avatarStatus: landingSceneAvatarStatus,
+        setLoadingState: setEmbeddedSceneLoading
       });
 
       embeddedVrmScene.start({
@@ -738,6 +812,11 @@
       return;
     }
 
+    if (isSignupVerificationFlow() && state.authenticationPassed) {
+      setStatus(verificationStatus, 'Your email is verified. Full Access is ready.', 'success');
+      return;
+    }
+
     if (state.authenticationPassed && isSdkVerificationFlow()) {
       setStatus(verificationStatus, 'Verification already completed. Continue to your SDK download.', 'success');
       return;
@@ -748,7 +827,11 @@
         verificationStatus,
         isSdkVerificationFlow()
           ? 'Enter your email and send the verification code to continue to your SDK download.'
-          : 'Enter your email and send the verification code to save this draft avatar.'
+          : (
+            isSignupVerificationFlow()
+              ? 'Enter your email to verify your account and unlock Full Access.'
+              : 'Enter your email and send the verification code to save this draft avatar.'
+          )
       );
       return;
     }
@@ -763,7 +846,11 @@
         verificationStatus,
         isSdkVerificationFlow()
           ? 'Enter the 4-digit verification code, then click Confirm to continue.'
-          : 'Enter the 4-digit verification code, then click Confirm to save your avatar.'
+          : (
+            isSignupVerificationFlow()
+              ? 'Enter the 4-digit verification code to confirm your email and finish unlocking Full Access.'
+              : 'Enter the 4-digit verification code, then click Confirm to save your avatar.'
+          )
       );
       return;
     }
@@ -772,7 +859,11 @@
       verificationStatus,
       isSdkVerificationFlow()
         ? 'Verification passed. Continue to your SDK download.'
-        : 'Verification passed. Saving your avatar...',
+        : (
+          isSignupVerificationFlow()
+            ? 'Verification passed. Preparing your Full Access.'
+            : 'Verification passed. Saving your avatar...'
+        ),
       'success'
     );
   }
@@ -786,6 +877,7 @@
       && normalizedCode.length === 4
       && (
         isSdkVerificationFlow()
+          || isSignupVerificationFlow()
           || (state.pendingAvatarKey && state.pendingVrmBlob instanceof Blob)
       )
     );
@@ -832,6 +924,8 @@
     if (playRow) {
       playRow.hidden = isSdkVerificationFlow();
     }
+
+    syncVerificationCloseButton();
   }
 
   function openVerificationModal(options) {
@@ -1053,6 +1147,14 @@
     });
   }
 
+  function openSignUpFlow() {
+    state.verificationFlow = 'signup';
+    openVerificationModal({
+      resetForm: true,
+      focusField: true
+    });
+  }
+
   function openSdkDownloadFlow() {
     state.verificationFlow = 'sdk';
     openVerificationModal({
@@ -1100,7 +1202,13 @@
 
       state.downloadRequestId = payload.requestId || '';
       setVerificationStep('code');
-      setStatus(verificationStatus, `Verification code sent to ${normalizedEmail}. Enter the 4-digit code to continue.`, 'success');
+      setStatus(
+        verificationStatus,
+        isSignupVerificationFlow()
+          ? `We sent a 4-digit code to ${normalizedEmail}. Enter it to unlock Full Access.`
+          : `Verification code sent to ${normalizedEmail}. Enter the 4-digit code to continue.`,
+        'success'
+      );
     } finally {
       state.sendingCode = false;
       updateVerificationStatusForState();
@@ -1929,7 +2037,7 @@
       return;
     }
 
-    if (!isSdkVerificationFlow() && !state.pendingAvatarKey) {
+    if (!isSdkVerificationFlow() && !isSignupVerificationFlow() && !state.pendingAvatarKey) {
       return;
     }
 
@@ -1962,7 +2070,11 @@
         verificationStatus,
         isSdkVerificationFlow()
           ? 'Verification succeeded. Your SDK sample is ready to download.'
-          : 'Verification succeeded. Saving your avatar now. Do not close or refresh the browser.',
+          : (
+            isSignupVerificationFlow()
+              ? 'Verification succeeded. Unlocking Full Access now.'
+              : 'Verification succeeded. Saving your avatar now. Do not close or refresh the browser.'
+          ),
         'success'
       );
       syncVerificationButtons();
@@ -1970,6 +2082,11 @@
       if (isSdkVerificationFlow()) {
         state.downloadCompletedOnce = false;
         openDownloadReadyModal('Your SDK sample is ready to download.', { tone: 'success' });
+        return;
+      }
+
+      if (isSignupVerificationFlow()) {
+        showSignupCompletePanel('Congratulations, your email is verified and Full Access is now enabled.', { tone: 'success' });
         return;
       }
 
@@ -2331,7 +2448,13 @@
 
   if (landingPillSaveAccountButton) {
     landingPillSaveAccountButton.addEventListener('click', () => {
-      openSaveAccountFlow();
+      openSignUpFlow();
+    });
+  }
+
+  if (signupCompleteDoneButton) {
+    signupCompleteDoneButton.addEventListener('click', () => {
+      closeVerificationModal();
     });
   }
 

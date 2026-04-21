@@ -769,6 +769,53 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   cursor: grabbing;
 }
 
+.embedded-scene-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.embedded-scene-loading[hidden] {
+  display: none;
+}
+
+.embedded-scene-loading-content {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.embedded-scene-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 4px solid rgba(255, 255, 255, 0.22);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(180, 208, 255, 0.28);
+  animation: embedded-scene-loading-spin 0.85s linear infinite;
+}
+
+.embedded-scene-loading-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgba(243, 247, 255, 0.9);
+  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+}
+
+@keyframes embedded-scene-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .embedded-scene-back-button {
   position: fixed;
   top: 24px;
@@ -975,6 +1022,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: rgba(229, 236, 255, 0.78);
 }
 
+#signup-complete-panel[hidden],
 #download-complete-panel[hidden],
 #verification-workflow[hidden],
 #verification-progress[hidden],
@@ -996,6 +1044,17 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: rgba(229, 236, 255, 0.78);
 }
 
+.flow-complete-copy {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.flow-complete-copy .flow-step-label,
+.flow-complete-copy .flow-step-note {
+  margin: 0;
+}
+
 #verification-step-email[hidden],
 #verification-step-code[hidden],
 #verification-resend-row[hidden] {
@@ -1013,6 +1072,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-send-button,
 #verification-resend-button,
+#signup-complete-done-button,
 #download-complete-play-button {
   min-height: 48px;
   min-width: 170px;
@@ -1031,6 +1091,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-send-button:focus-visible,
 #verification-resend-button:hover,
 #verification-resend-button:focus-visible,
+#signup-complete-done-button:hover,
+#signup-complete-done-button:focus-visible,
 #download-complete-play-button:hover,
 #download-complete-play-button:focus-visible {
   background: rgba(255, 255, 255, 0.12);
@@ -1041,6 +1103,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-send-button:disabled,
 #verification-resend-button:disabled,
+#signup-complete-done-button:disabled,
 #download-complete-play-button:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -1058,6 +1121,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 }
 
 #verification-resend-button,
+#signup-complete-done-button,
 #download-complete-play-button {
   width: 100%;
   min-width: 0;
@@ -1065,6 +1129,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-download-button:disabled,
 #download-complete-download-button:disabled,
+#signup-complete-done-button:disabled,
 #download-complete-play-button:disabled {
   cursor: not-allowed;
   opacity: 0.54;
@@ -1074,6 +1139,7 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-download-button:disabled::before,
 #download-complete-download-button:disabled::before,
+#signup-complete-done-button:disabled::before,
 #download-complete-play-button:disabled::before {
   opacity: 0.16;
 }
