@@ -1314,6 +1314,19 @@
     view.setUint32(offset, value >>> 0, true);
   }
 
+  async function fetchAsset(path, responseType = 'text') {
+    const response = await fetch(path, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${path} (${response.status}).`);
+    }
+
+    if (responseType === 'blob') {
+      return response.blob();
+    }
+
+    return response.text();
+  }
+
   async function buildZipBlob(entries) {
     const normalizedEntries = await Promise.all(entries.map(async (entry) => {
       const nameBytes = new TextEncoder().encode(entry.path);
@@ -1385,6 +1398,137 @@
     return new Blob([...parts, ...centralDirectoryParts, endRecord], {
       type: 'application/zip'
     });
+  }
+
+  function renderRuntimeSdkTenantBootstrap() {
+    return [
+      "const tenantId = (() => {",
+      "  const storageKey = 'ac2-demo-tenant-id';",
+      "  let stored = '';",
+      "  try {",
+      "    stored = window.localStorage.getItem(storageKey) || '';",
+      "  } catch {}",
+      "  if (stored && stored.trim()) {",
+      "    return stored.trim();",
+      "  }",
+      '',
+      "  const hostSeed = (window.location.hostname || 'local')",
+      "    .replace(/[^a-z0-9-]+/gi, '-')",
+      "    .replace(/^-+|-+$/g, '')",
+      "    .toLowerCase() || 'local';",
+      "  const generated = `demo-${hostSeed}-${Math.random().toString(36).slice(2, 8)}`;",
+      "  try {",
+      "    window.localStorage.setItem(storageKey, generated);",
+      "  } catch {}",
+      "  return generated;",
+      '})();'
+    ].join('\n');
+  }
+
+  function renderRuntimeSdkTenantResolver() {
+    return [
+      "const DEFAULT_TENANT_ID = (() => {",
+      "  const storageKey = 'ac2-demo-tenant-id';",
+      "  let stored = '';",
+      "  try {",
+      "    stored = window.localStorage.getItem(storageKey) || '';",
+      "  } catch {}",
+      "  if (stored && stored.trim()) {",
+      "    return stored.trim();",
+      "  }",
+      '',
+      "  const hostSeed = (window.location.hostname || 'local')",
+      "    .replace(/[^a-z0-9-]+/gi, '-')",
+      "    .replace(/^-+|-+$/g, '')",
+      "    .toLowerCase() || 'local';",
+      "  const generated = `demo-${hostSeed}-${Math.random().toString(36).slice(2, 8)}`;",
+      "  try {",
+      "    window.localStorage.setItem(storageKey, generated);",
+      "  } catch {}",
+      "  return generated;",
+      '})();',
+      "const tenantId = (urlParams.get('tenant') || DEFAULT_TENANT_ID).trim() || DEFAULT_TENANT_ID;"
+    ].join('\n');
+  }
+
+  function replaceLiteral(source, searchValue, replaceValue) {
+    if (!source.includes(searchValue)) {
+      throw new Error(`Expected template fragment not found: ${searchValue}`);
+    }
+
+    return source.replace(searchValue, replaceValue);
+  }
+
+  async function buildSdkArchiveBlob() {
+    const [
+      readme,
+      minimalHtml,
+      minimalAc2Host,
+      demoSceneHtml,
+      demoSceneCss,
+      demoSceneAc2Host,
+      demoSceneMain,
+      demoSceneVrmScene
+    ] = await Promise.all([
+      fetchAsset('../demo/README.md', 'text'),
+      fetchAsset('../demo/minimal/index.html', 'text'),
+      fetchAsset('../demo/minimal/ac2-host.js', 'text'),
+      fetchAsset('../demo/demo-scene/index.html', 'text'),
+      fetchAsset('../demo/demo-scene/style.css', 'text'),
+      fetchAsset('../demo/demo-scene/ac2-host.js', 'text'),
+      fetchAsset('../demo/demo-scene/main.js', 'text'),
+      fetchAsset('../demo/demo-scene/vrm-scene.js', 'text')
+    ]);
+
+    const customizedMinimalHtml = replaceLiteral(
+      minimalHtml,
+      "const tenantId = 'viverse';",
+      renderRuntimeSdkTenantBootstrap()
+    );
+
+    const customizedDemoSceneMain = replaceLiteral(
+      demoSceneMain,
+      "const tenantId = (urlParams.get('tenant') || 'viverse').trim() || 'viverse';",
+      renderRuntimeSdkTenantResolver()
+    );
+
+    return {
+      archiveBlob: await buildZipBlob([
+        {
+          path: 'README.md',
+          content: readme
+        },
+        {
+          path: 'minimal/index.html',
+          content: customizedMinimalHtml
+        },
+        {
+          path: 'minimal/ac2-host.js',
+          content: minimalAc2Host
+        },
+        {
+          path: 'demo-scene/index.html',
+          content: demoSceneHtml
+        },
+        {
+          path: 'demo-scene/style.css',
+          content: demoSceneCss
+        },
+        {
+          path: 'demo-scene/ac2-host.js',
+          content: demoSceneAc2Host
+        },
+        {
+          path: 'demo-scene/main.js',
+          content: customizedDemoSceneMain
+        },
+        {
+          path: 'demo-scene/vrm-scene.js',
+          content: demoSceneVrmScene
+        }
+      ]),
+      archiveFilename: 'ac2-demo.zip'
+    };
   }
 
   function getArchiveStem(value) {
@@ -1577,6 +1721,35 @@
       state.downloading = false;
       syncVerificationButtons();
       syncSceneActionButtons();
+    }
+  }
+
+  async function handleSdkDownload() {
+    if (!getSdkButton || getSdkButton.disabled) {
+      return;
+    }
+
+    const originalText = getSdkButton.textContent;
+    getSdkButton.disabled = true;
+    getSdkButton.textContent = 'Preparing';
+
+    try {
+      const { archiveBlob, archiveFilename } = await buildSdkArchiveBlob();
+      const fileHandle = await requestArchiveFileHandle(archiveFilename);
+      await saveBlobWithFileHandle(archiveBlob, fileHandle);
+      getSdkButton.textContent = 'Downloaded';
+    } catch (error) {
+      if (!isFilePickerAbortError(error)) {
+        console.error(error);
+      }
+      getSdkButton.textContent = isFilePickerAbortError(error) ? originalText : 'Failed';
+    } finally {
+      window.setTimeout(() => {
+        getSdkButton.disabled = false;
+        if (getSdkButton.textContent !== 'Downloaded') {
+          getSdkButton.textContent = originalText;
+        }
+      }, 1400);
     }
   }
 
@@ -1885,6 +2058,12 @@
   if (enterDemoSceneButton) {
     enterDemoSceneButton.addEventListener('click', () => {
       showEmbeddedDemoScene();
+    });
+  }
+
+  if (getSdkButton) {
+    getSdkButton.addEventListener('click', () => {
+      handleSdkDownload();
     });
   }
 
