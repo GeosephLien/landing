@@ -420,13 +420,13 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download VRM Again' : 'Download VRM');
+        : (state.downloadCompletedOnce ? 'Download Avatar ZIP Again' : 'Download Avatar ZIP');
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
@@ -756,13 +756,13 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download VRM Again' : 'Download VRM');
+        : (state.downloadCompletedOnce ? 'Download Avatar ZIP Again' : 'Download Avatar ZIP');
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
     if (downloadCompletePlayButton) {
       downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing';
+      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
     }
   }
@@ -1070,6 +1070,24 @@
     });
   }
 
+  async function requestArchiveFileHandle(filename) {
+    if (typeof window.showSaveFilePicker !== 'function') {
+      throw new Error('This browser does not support the file picker required for ZIP download.');
+    }
+
+    return window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [
+        {
+          description: 'ZIP archive',
+          accept: {
+            'application/zip': ['.zip']
+          }
+        }
+      ]
+    });
+  }
+
   async function saveBlobWithFileHandle(blob, handle, onProgress) {
     if (!(blob instanceof Blob)) {
       throw new Error('VRM data is no longer available in memory.');
@@ -1232,6 +1250,197 @@
     }
   }
 
+  const CRC32_TABLE = (() => {
+    const table = new Uint32Array(256);
+
+    for (let index = 0; index < 256; index += 1) {
+      let value = index;
+      for (let bit = 0; bit < 8; bit += 1) {
+        value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+      }
+      table[index] = value >>> 0;
+    }
+
+    return table;
+  })();
+
+  let avatarThumbnailModulePromise = null;
+
+  function computeCrc32(bytes) {
+    let crc = 0xffffffff;
+
+    for (let index = 0; index < bytes.length; index += 1) {
+      crc = CRC32_TABLE[(crc ^ bytes[index]) & 0xff] ^ (crc >>> 8);
+    }
+
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function createDosDateTime(date = new Date()) {
+    const year = Math.max(1980, date.getFullYear());
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = Math.floor(date.getSeconds() / 2);
+
+    return {
+      time: ((hours & 0x1f) << 11) | ((minutes & 0x3f) << 5) | (seconds & 0x1f),
+      date: (((year - 1980) & 0x7f) << 9) | ((month & 0x0f) << 5) | (day & 0x1f)
+    };
+  }
+
+  async function toUint8Array(value) {
+    if (value instanceof Uint8Array) {
+      return value;
+    }
+
+    if (value instanceof Blob) {
+      return new Uint8Array(await value.arrayBuffer());
+    }
+
+    if (typeof value === 'string') {
+      return new TextEncoder().encode(value);
+    }
+
+    throw new Error('Unsupported zip content type.');
+  }
+
+  function writeUint16(view, offset, value) {
+    view.setUint16(offset, value & 0xffff, true);
+  }
+
+  function writeUint32(view, offset, value) {
+    view.setUint32(offset, value >>> 0, true);
+  }
+
+  async function buildZipBlob(entries) {
+    const normalizedEntries = await Promise.all(entries.map(async (entry) => {
+      const nameBytes = new TextEncoder().encode(entry.path);
+      const dataBytes = await toUint8Array(entry.content);
+      return {
+        nameBytes,
+        dataBytes,
+        crc32: computeCrc32(dataBytes)
+      };
+    }));
+
+    const parts = [];
+    const centralDirectoryParts = [];
+    let localOffset = 0;
+    const { time, date } = createDosDateTime();
+
+    normalizedEntries.forEach((entry) => {
+      const localHeader = new ArrayBuffer(30);
+      const localView = new DataView(localHeader);
+      writeUint32(localView, 0, 0x04034b50);
+      writeUint16(localView, 4, 20);
+      writeUint16(localView, 6, 0);
+      writeUint16(localView, 8, 0);
+      writeUint16(localView, 10, time);
+      writeUint16(localView, 12, date);
+      writeUint32(localView, 14, entry.crc32);
+      writeUint32(localView, 18, entry.dataBytes.length);
+      writeUint32(localView, 22, entry.dataBytes.length);
+      writeUint16(localView, 26, entry.nameBytes.length);
+      writeUint16(localView, 28, 0);
+      parts.push(localHeader, entry.nameBytes, entry.dataBytes);
+
+      const centralHeader = new ArrayBuffer(46);
+      const centralView = new DataView(centralHeader);
+      writeUint32(centralView, 0, 0x02014b50);
+      writeUint16(centralView, 4, 20);
+      writeUint16(centralView, 6, 20);
+      writeUint16(centralView, 8, 0);
+      writeUint16(centralView, 10, 0);
+      writeUint16(centralView, 12, time);
+      writeUint16(centralView, 14, date);
+      writeUint32(centralView, 16, entry.crc32);
+      writeUint32(centralView, 20, entry.dataBytes.length);
+      writeUint32(centralView, 24, entry.dataBytes.length);
+      writeUint16(centralView, 28, entry.nameBytes.length);
+      writeUint16(centralView, 30, 0);
+      writeUint16(centralView, 32, 0);
+      writeUint16(centralView, 34, 0);
+      writeUint16(centralView, 36, 0);
+      writeUint32(centralView, 38, 0);
+      writeUint32(centralView, 42, localOffset);
+      centralDirectoryParts.push(centralHeader, entry.nameBytes);
+
+      localOffset += 30 + entry.nameBytes.length + entry.dataBytes.length;
+    });
+
+    const centralDirectorySize = centralDirectoryParts.reduce((total, part) => total + part.byteLength, 0);
+    const endRecord = new ArrayBuffer(22);
+    const endView = new DataView(endRecord);
+    writeUint32(endView, 0, 0x06054b50);
+    writeUint16(endView, 4, 0);
+    writeUint16(endView, 6, 0);
+    writeUint16(endView, 8, normalizedEntries.length);
+    writeUint16(endView, 10, normalizedEntries.length);
+    writeUint32(endView, 12, centralDirectorySize);
+    writeUint32(endView, 16, localOffset);
+    writeUint16(endView, 20, 0);
+
+    return new Blob([...parts, ...centralDirectoryParts, endRecord], {
+      type: 'application/zip'
+    });
+  }
+
+  function getArchiveStem(value) {
+    return String(value || 'avatar')
+      .replace(/\.[^.]+$/, '')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '_')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'avatar';
+  }
+
+  function getArchivePaths(filename) {
+    const vrmFilename = inferAvatarFilename(filename);
+    const stem = getArchiveStem(vrmFilename);
+    return {
+      vrmFilename,
+      thumbnailFilename: `${stem}-thumb.png`,
+      archiveFilename: `${stem}.zip`
+    };
+  }
+
+  async function getAvatarThumbnailModule() {
+    if (!avatarThumbnailModulePromise) {
+      avatarThumbnailModulePromise = import(new URL('./avatar-thumbnail.js', window.location.href).href);
+    }
+    return avatarThumbnailModulePromise;
+  }
+
+  async function createAvatarThumbnailBlob(vrmBlob, filename) {
+    const module = await getAvatarThumbnailModule();
+    return module.createAvatarThumbnailBlob(vrmBlob, {
+      label: getArchiveStem(filename)
+    });
+  }
+
+  async function buildAvatarArchiveBlob(vrmBlob, filename) {
+    const paths = getArchivePaths(filename);
+    const thumbnailBlob = await createAvatarThumbnailBlob(vrmBlob, paths.vrmFilename);
+    const entries = [
+      {
+        path: paths.vrmFilename,
+        content: vrmBlob
+      },
+      {
+        path: paths.thumbnailFilename,
+        content: thumbnailBlob
+      }
+    ];
+
+    return {
+      archiveBlob: await buildZipBlob(entries),
+      archiveFilename: paths.archiveFilename
+    };
+  }
+
   function inferAvatarFilename(value) {
     const rawValue = String(value || '').trim();
     const lastSegment = rawValue ? rawValue.split('/').pop() : '';
@@ -1263,6 +1472,9 @@
   async function resolveCurrentDownloadableAvatar() {
     const sceneMeta = getSceneAvatarMeta();
     if (sceneMeta) {
+      if (state.pendingVrmBlob instanceof Blob && state.pendingAvatarKey && state.pendingAvatarKey === sceneMeta.key) {
+        sceneMeta.blob = state.pendingVrmBlob;
+      }
       return sceneMeta;
     }
 
@@ -1296,6 +1508,24 @@
     return response.blob();
   }
 
+  async function downloadAvatarArchive(avatar) {
+    const nextAvatar = avatar || null;
+    if (!nextAvatar || (!nextAvatar.blob && !nextAvatar.key)) {
+      throw new Error('No active avatar is available to download.');
+    }
+
+    const filename = inferAvatarFilename(nextAvatar.fileName || nextAvatar.key || 'avatar.vrm');
+    const vrmBlob = nextAvatar.blob instanceof Blob
+      ? nextAvatar.blob
+      : await fetchAvatarBlobForDownload(nextAvatar.key);
+    const { archiveBlob, archiveFilename } = await buildAvatarArchiveBlob(vrmBlob, filename);
+    const fileHandle = await requestArchiveFileHandle(archiveFilename);
+    await saveBlobWithFileHandle(archiveBlob, fileHandle);
+    return {
+      archiveFilename
+    };
+  }
+
   async function handleSceneAvatarDownload() {
     if (state.downloading) {
       return;
@@ -1312,23 +1542,9 @@
       return;
     }
 
-    if (!avatar || !avatar.key) {
+    if (!avatar || (!avatar.key && !(avatar.blob instanceof Blob))) {
       if (embeddedVrmScene) {
         embeddedVrmScene.setAvatarText('No active avatar is available to download.');
-      }
-      return;
-    }
-
-    let fileHandle = null;
-    try {
-      fileHandle = await requestFileHandle(avatar.fileName);
-    } catch (error) {
-      if (isFilePickerAbortError(error)) {
-        return;
-      }
-
-      if (embeddedVrmScene) {
-        embeddedVrmScene.setAvatarText(error.message || 'Unable to open the file picker.');
       }
       return;
     }
@@ -1337,31 +1553,25 @@
     syncVerificationButtons();
     syncSceneActionButtons();
     if (embeddedVrmScene) {
-      embeddedVrmScene.setAvatarText(`Preparing ${avatar.fileName}...`);
+      embeddedVrmScene.setAvatarText(`Preparing ${inferAvatarFilename(avatar.fileName || avatar.key || 'avatar.vrm')}...`);
     }
 
     try {
-      const blob = await fetchAvatarBlobForDownload(avatar.key);
-
-      try {
-        await saveBlobWithFileHandle(blob, fileHandle);
-      } catch (error) {
-        if (isFilePickerAbortError(error)) {
-          if (embeddedVrmScene) {
-            embeddedVrmScene.setAvatarText('Download was cancelled. You can try again.');
-          }
-          return;
-        }
-        throw error;
-      }
-
+      const result = await downloadAvatarArchive(avatar);
       if (embeddedVrmScene) {
-        embeddedVrmScene.setAvatarText(`${avatar.fileName} downloaded.`);
+        embeddedVrmScene.setAvatarText(`${result.archiveFilename} downloaded.`);
       }
     } catch (error) {
-      console.error(error);
+      if (!isFilePickerAbortError(error)) {
+        console.error(error);
+      }
+
       if (embeddedVrmScene) {
-        embeddedVrmScene.setAvatarText(error.message || 'VRM download failed.');
+        embeddedVrmScene.setAvatarText(
+          isFilePickerAbortError(error)
+            ? 'Download was cancelled. You can try again.'
+            : (error.message || 'Avatar ZIP download failed.')
+        );
       }
     } finally {
       state.downloading = false;
@@ -1474,47 +1684,37 @@
       return;
     }
 
-    let fileHandle = null;
-    try {
-      fileHandle = await requestFileHandle(state.pendingFileName || 'avatar.vrm');
-    } catch (error) {
-      if (isFilePickerAbortError(error)) {
-        return;
-      }
-      setStatus(verificationStatus, error.message || 'Unable to open the file picker.', 'error');
-      return;
-    }
-
     state.downloading = true;
     syncVerificationButtons();
-    setStatus(verificationStatus, 'Preparing download...');
-    setDownloadCompleteState('Preparing download...', { tone: 'success' });
+    setStatus(verificationStatus, 'Preparing ZIP download...');
+    setDownloadCompleteState('Preparing ZIP download...', { tone: 'success' });
 
     try {
       if (!(state.pendingVrmBlob instanceof Blob)) {
         throw new Error('VRM data is no longer available on the landing page. Please create it again.');
       }
 
-      try {
-        await saveBlobWithFileHandle(state.pendingVrmBlob, fileHandle);
-      } catch (error) {
-        if (isFilePickerAbortError(error)) {
-          setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
-          setDownloadCompleteState('Download was cancelled. You can try again.', { tone: 'error' });
-          return;
-        }
-        throw error;
-      }
+      await downloadAvatarArchive({
+        key: state.pendingAvatarKey,
+        fileName: state.pendingFileName || 'avatar.vrm',
+        blob: state.pendingVrmBlob
+      });
 
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.downloadCompletedOnce = true;
       setStatus(verificationStatus, 'Download complete.', 'success');
-      setDownloadCompleteState('Download complete. Play it when ready.', { tone: 'success' });
+      setDownloadCompleteState('Download complete. Try playing your avatar when ready.', { tone: 'success' });
     } catch (error) {
+      if (isFilePickerAbortError(error)) {
+        setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
+        setDownloadCompleteState('Download was cancelled. You can try again.', { tone: 'error' });
+        return;
+      }
+
       console.error(error);
-      setStatus(verificationStatus, error.message || 'VRM download failed.', 'error');
-      setDownloadCompleteState(error.message || 'VRM download failed.', { tone: 'error' });
+      setStatus(verificationStatus, error.message || 'Avatar ZIP download failed.', 'error');
+      setDownloadCompleteState(error.message || 'Avatar ZIP download failed.', { tone: 'error' });
     } finally {
       state.downloading = false;
       syncVerificationButtons();
@@ -1659,7 +1859,7 @@
         return;
       }
       renderUserPill(state.currentUserEmail);
-      openDownloadReadyModal('Your draft avatar is ready. Download it now or jump into Play It.', { tone: 'success' });
+      openDownloadReadyModal('Your draft avatar is ready. Download it now or try playing your avatar.', { tone: 'success' });
       syncVerificationButtons();
       return;
     }
