@@ -420,7 +420,7 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download Avatar ZIP Again' : 'Download Avatar ZIP');
+        : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM');
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
@@ -756,7 +756,7 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download Avatar ZIP Again' : 'Download Avatar ZIP');
+        : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM');
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
@@ -1729,26 +1729,19 @@
       return;
     }
 
-    const originalText = getSdkButton.textContent;
     getSdkButton.disabled = true;
-    getSdkButton.textContent = 'Preparing';
 
     try {
       const { archiveBlob, archiveFilename } = await buildSdkArchiveBlob();
       const fileHandle = await requestArchiveFileHandle(archiveFilename);
       await saveBlobWithFileHandle(archiveBlob, fileHandle);
-      getSdkButton.textContent = 'Downloaded';
     } catch (error) {
       if (!isFilePickerAbortError(error)) {
         console.error(error);
       }
-      getSdkButton.textContent = isFilePickerAbortError(error) ? originalText : 'Failed';
     } finally {
       window.setTimeout(() => {
         getSdkButton.disabled = false;
-        if (getSdkButton.textContent !== 'Downloaded') {
-          getSdkButton.textContent = originalText;
-        }
       }, 1400);
     }
   }
