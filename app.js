@@ -951,6 +951,29 @@
     renderUserPill(getSyncedTenantEmail());
   }
 
+  async function syncAuthenticatedUserFromServer(fallbackEmail) {
+    try {
+      const payload = await fetchCurrentUser();
+      const restoredEmail = normalizeEmail(payload && payload.email);
+      if (!restoredEmail) {
+        if (fallbackEmail) {
+          adoptAuthenticatedEmail(fallbackEmail);
+        }
+        return;
+      }
+
+      state.tenantId = restoredEmail;
+      state.authenticatedTenantKey = payload && payload.tenantId ? String(payload.tenantId) : '';
+      persistTenant(restoredEmail);
+      renderUserPill(restoredEmail);
+    } catch (error) {
+      console.debug('Unable to sync authenticated landing user immediately.', error);
+      if (fallbackEmail) {
+        adoptAuthenticatedEmail(fallbackEmail);
+      }
+    }
+  }
+
   async function logoutCurrentUser() {
     const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/logout`, {
       method: 'POST',
@@ -1920,7 +1943,7 @@
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.verifiedCodeValue = code;
-      adoptAuthenticatedEmail(state.pendingAccountEmail);
+      await syncAuthenticatedUserFromServer(state.pendingAccountEmail);
       verificationCodeInput.classList.remove('input-error');
       setStatus(
         verificationStatus,
