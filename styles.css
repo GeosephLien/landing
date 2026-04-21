@@ -975,6 +975,18 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   outline-offset: 2px;
 }
 
+#verification-code-input {
+  width: min(100%, 360px);
+  min-height: 80px;
+  margin: 0 auto;
+  padding: 18px 20px;
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.28em;
+  text-align: center;
+}
+
 .flow-status {
   min-height: 1.4em;
   margin: 16px 0 0;
