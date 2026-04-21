@@ -77,6 +77,7 @@
     uploadStarted: false,
     uploadReady: false,
     verificationPanelMode: 'verify',
+    verificationFlow: 'avatar',
     verificationStep: 'email',
     verifyingCode: false,
     sendingCode: false,
@@ -214,7 +215,7 @@
     const showGuestSaveAction = showGuestDraftActions;
     const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
-    const showSceneDownloadAction = sceneVisible && (showAvatarAccess || hasDraftAvatarReady());
+    const showSceneDownloadAction = sceneVisible && !showAvatarAccess && hasDraftAvatarReady();
     const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
@@ -397,13 +398,23 @@
     }
   }
 
+  function isSdkVerificationFlow() {
+    return state.verificationFlow === 'sdk';
+  }
+
+  function getVerificationTitleText() {
+    if (state.verificationPanelMode === 'ready') {
+      return isSdkVerificationFlow() ? 'Your SDK Sample Is Ready' : 'Avatar Ready';
+    }
+
+    return isSdkVerificationFlow() ? 'Verify to Download SDK' : 'Create Account to Save Avatar';
+  }
+
   function setVerificationPanelMode(mode) {
     state.verificationPanelMode = mode === 'ready' ? 'ready' : 'verify';
 
     if (verificationTitle) {
-      verificationTitle.textContent = state.verificationPanelMode === 'ready'
-        ? 'Avatar Ready'
-        : 'Create Account to Save Avatar';
+      verificationTitle.textContent = getVerificationTitleText();
     }
 
     if (verificationWorkflow) {
@@ -420,7 +431,11 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM');
+        : (
+          isSdkVerificationFlow()
+            ? 'Download SDK'
+            : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM')
+        );
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
@@ -428,6 +443,12 @@
       downloadCompletePlayButton.disabled = state.claimInFlight;
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
+      downloadCompletePlayButton.hidden = isSdkVerificationFlow();
+    }
+
+    const playRow = document.getElementById('download-complete-play-row');
+    if (playRow) {
+      playRow.hidden = isSdkVerificationFlow();
     }
   }
 
@@ -706,8 +727,18 @@
       return;
     }
 
+    if (state.authenticationPassed && isSdkVerificationFlow()) {
+      setStatus(verificationStatus, 'Verification already completed. Continue to your SDK download.', 'success');
+      return;
+    }
+
     if (state.verificationStep === 'email') {
-      setStatus(verificationStatus, 'Enter your email and send the verification code to save this draft avatar.');
+      setStatus(
+        verificationStatus,
+        isSdkVerificationFlow()
+          ? 'Enter your email and send the verification code to continue to your SDK download.'
+          : 'Enter your email and send the verification code to save this draft avatar.'
+      );
       return;
     }
 
@@ -717,11 +748,22 @@
     }
 
     if (!state.verifiedForDownload) {
-      setStatus(verificationStatus, 'Enter the 4-digit verification code, then click Confirm to save your avatar.');
+      setStatus(
+        verificationStatus,
+        isSdkVerificationFlow()
+          ? 'Enter the 4-digit verification code, then click Confirm to continue.'
+          : 'Enter the 4-digit verification code, then click Confirm to save your avatar.'
+      );
       return;
     }
 
-    setStatus(verificationStatus, 'Verification passed. Saving your avatar...', 'success');
+    setStatus(
+      verificationStatus,
+      isSdkVerificationFlow()
+        ? 'Verification passed. Continue to your SDK download.'
+        : 'Verification passed. Saving your avatar...',
+      'success'
+    );
   }
 
   function syncVerificationButtons() {
@@ -731,8 +773,10 @@
     const canVerifyAndDownload = Boolean(
       state.downloadRequestId
       && normalizedCode.length === 4
-      && state.pendingAvatarKey
-      && state.pendingVrmBlob instanceof Blob
+      && (
+        isSdkVerificationFlow()
+          || (state.pendingAvatarKey && state.pendingVrmBlob instanceof Blob)
+      )
     );
 
     if (verificationSendButton) {
@@ -756,7 +800,11 @@
       downloadCompleteDownloadButton.disabled = state.downloading;
       downloadCompleteDownloadButton.textContent = state.downloading
         ? 'Downloading...'
-        : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM');
+        : (
+          isSdkVerificationFlow()
+            ? 'Download SDK'
+            : (state.downloadCompletedOnce ? 'Download Again' : 'Download VRM')
+        );
       downloadCompleteDownloadButton.classList.toggle('is-secondary-look', state.downloadCompletedOnce);
     }
 
@@ -764,6 +812,12 @@
       downloadCompletePlayButton.disabled = state.claimInFlight;
       downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
+      downloadCompletePlayButton.hidden = isSdkVerificationFlow();
+    }
+
+    const playRow = document.getElementById('download-complete-play-row');
+    if (playRow) {
+      playRow.hidden = isSdkVerificationFlow();
     }
   }
 
@@ -942,7 +996,29 @@
     handleForgetMe();
   }
 
+  function adoptAuthenticatedEmail(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return;
+    }
+
+    state.tenantId = normalizedEmail;
+    state.currentUserEmail = normalizedEmail;
+    state.pendingAccountEmail = normalizedEmail;
+    persistTenant(normalizedEmail);
+    renderUserPill(normalizedEmail);
+  }
+
   function openSaveAccountFlow() {
+    state.verificationFlow = 'avatar';
+    openVerificationModal({
+      resetForm: true,
+      focusField: true
+    });
+  }
+
+  function openSdkDownloadFlow() {
+    state.verificationFlow = 'sdk';
     openVerificationModal({
       resetForm: true,
       focusField: true
@@ -1724,12 +1800,20 @@
     }
   }
 
-  async function handleSdkDownload() {
-    if (!getSdkButton || getSdkButton.disabled) {
+  async function handleSdkDownload(options = {}) {
+    const controlButton = options.keepButtonState !== false;
+
+    if (!getSdkButton) {
       return;
     }
 
-    getSdkButton.disabled = true;
+    if (controlButton && getSdkButton.disabled) {
+      return;
+    }
+
+    if (controlButton) {
+      getSdkButton.disabled = true;
+    }
 
     try {
       const { archiveBlob, archiveFilename } = await buildSdkArchiveBlob();
@@ -1739,11 +1823,23 @@
       if (!isFilePickerAbortError(error)) {
         console.error(error);
       }
+      throw error;
     } finally {
-      window.setTimeout(() => {
-        getSdkButton.disabled = false;
-      }, 1400);
+      if (controlButton) {
+        window.setTimeout(() => {
+          getSdkButton.disabled = false;
+        }, 1400);
+      }
     }
+  }
+
+  function handleGetSdkClick() {
+    if (hasAuthenticatedUser()) {
+      handleSdkDownload().catch(() => {});
+      return;
+    }
+
+    openSdkDownloadFlow();
   }
 
   async function launchAuthenticatedViewer() {
@@ -1793,7 +1889,11 @@
   }
 
   async function handleDownload() {
-    if (!state.pendingAvatarKey || state.downloading || !verificationCodeInput) {
+    if (state.downloading || !verificationCodeInput) {
+      return;
+    }
+
+    if (!isSdkVerificationFlow() && !state.pendingAvatarKey) {
       return;
     }
 
@@ -1820,9 +1920,23 @@
       state.authenticationPassed = true;
       state.verifiedForDownload = true;
       state.verifiedCodeValue = code;
+      adoptAuthenticatedEmail(state.pendingAccountEmail);
       verificationCodeInput.classList.remove('input-error');
-      setStatus(verificationStatus, 'Verification succeeded. Saving your avatar now. Do not close or refresh the browser.', 'success');
+      setStatus(
+        verificationStatus,
+        isSdkVerificationFlow()
+          ? 'Verification succeeded. Your SDK sample is ready to download.'
+          : 'Verification succeeded. Saving your avatar now. Do not close or refresh the browser.',
+        'success'
+      );
       syncVerificationButtons();
+
+      if (isSdkVerificationFlow()) {
+        state.downloadCompletedOnce = false;
+        openDownloadReadyModal('Your SDK sample is ready to download.', { tone: 'success' });
+        return;
+      }
+
       await queueClaimDraftAvatar();
       embeddedSceneLoadedTenant = '';
       if (embeddedScene && !embeddedScene.hidden) {
@@ -1846,7 +1960,37 @@
   }
 
   async function handleReadyDownload() {
-    if (!state.pendingAvatarKey || state.downloading) {
+    if (state.downloading) {
+      return;
+    }
+
+    if (isSdkVerificationFlow()) {
+      state.downloading = true;
+      syncVerificationButtons();
+      setStatus(verificationStatus, 'Preparing SDK download...');
+      setDownloadCompleteState('Preparing SDK download...', { tone: 'success' });
+
+      try {
+        await handleSdkDownload({ keepButtonState: false });
+        closeVerificationModal();
+      } catch (error) {
+        if (isFilePickerAbortError(error)) {
+          setStatus(verificationStatus, 'Download was cancelled. You can try again.', 'error');
+          setDownloadCompleteState('Download was cancelled. You can try again.', { tone: 'error' });
+          return;
+        }
+
+        console.error(error);
+        setStatus(verificationStatus, error.message || 'SDK download failed.', 'error');
+        setDownloadCompleteState(error.message || 'SDK download failed.', { tone: 'error' });
+      } finally {
+        state.downloading = false;
+        syncVerificationButtons();
+      }
+      return;
+    }
+
+    if (!state.pendingAvatarKey) {
       return;
     }
 
@@ -2010,6 +2154,7 @@
         state.resumeToCreator = false;
         return;
       }
+      state.verificationFlow = 'avatar';
       state.uploadStarted = true;
       state.uploadReady = true;
       state.pendingAvatarKey = message.payload && message.payload.key ? message.payload.key : '';
@@ -2056,7 +2201,7 @@
 
   if (getSdkButton) {
     getSdkButton.addEventListener('click', () => {
-      handleSdkDownload();
+      handleGetSdkClick();
     });
   }
 
