@@ -215,7 +215,7 @@
     const showGuestSaveAction = showGuestDraftActions;
     const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
-    const showSceneDownloadAction = sceneVisible && !showAvatarAccess && hasDraftAvatarReady();
+    const showSceneDownloadAction = false;
     const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
 
     if (landingPillOpenAc2Button) {
@@ -224,6 +224,7 @@
 
     if (landingPillCreateAvatarButton) {
       landingPillCreateAvatarButton.hidden = !showGuestCreateAvatarAction;
+      landingPillCreateAvatarButton.textContent = 'Create New Avatar';
     }
 
     if (landingPillDownloadAvatarButton) {
@@ -239,6 +240,7 @@
     if (landingPillSaveAccountButton) {
       landingPillSaveAccountButton.hidden = !showGuestSaveAction;
       landingPillSaveAccountButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
+      landingPillSaveAccountButton.textContent = 'Sign Up to Download Your Avatar';
     }
 
     if (forgetMeButton) {
@@ -440,8 +442,10 @@
     }
 
     if (downloadCompletePlayButton) {
-      downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
+      downloadCompletePlayButton.disabled = false;
+      downloadCompletePlayButton.textContent = isSdkVerificationFlow()
+        ? (state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar')
+        : 'Done';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
       downloadCompletePlayButton.hidden = isSdkVerificationFlow();
     }
@@ -816,8 +820,10 @@
     }
 
     if (downloadCompletePlayButton) {
-      downloadCompletePlayButton.disabled = state.claimInFlight;
-      downloadCompletePlayButton.textContent = state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar';
+      downloadCompletePlayButton.disabled = false;
+      downloadCompletePlayButton.textContent = isSdkVerificationFlow()
+        ? (state.claimInFlight ? 'Preparing Avatar...' : 'Try Playing Your Avatar')
+        : 'Done';
       downloadCompletePlayButton.classList.toggle('is-primary-look', state.downloadCompletedOnce);
       downloadCompletePlayButton.hidden = isSdkVerificationFlow();
     }
@@ -1973,7 +1979,8 @@
         await loadEmbeddedSceneAvatar({ force: true });
       }
       state.resumeToCreator = false;
-      closeVerificationModal();
+      state.downloadCompletedOnce = false;
+      openDownloadReadyModal('Your avatar is ready. Download it now when you are ready to leave.', { tone: 'success' });
     } catch (error) {
       console.error(error);
       state.authenticationPassed = false;
@@ -2200,7 +2207,12 @@
         return;
       }
       renderUserPill(state.currentUserEmail);
-      openDownloadReadyModal('Your draft avatar is ready. Download it now or try playing your avatar.', { tone: 'success' });
+      closeVerificationModal();
+      closeAc2Modal();
+      showEmbeddedDemoScene().catch((error) => {
+        console.error(error);
+        setStatus(verificationStatus, error.message || 'Unable to open the demo scene.', 'error');
+      });
       syncVerificationButtons();
       return;
     }
@@ -2288,6 +2300,10 @@
 
   if (downloadCompletePlayButton) {
     downloadCompletePlayButton.addEventListener('click', async () => {
+      if (!isSdkVerificationFlow()) {
+        closeVerificationModal();
+        return;
+      }
       closeVerificationModal();
       closeAc2Modal();
       showEmbeddedDemoScene();
