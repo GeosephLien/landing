@@ -1,12 +1,57 @@
 (function () {
   const urlParams = new URLSearchParams(window.location.search);
-  const runtimeApiBase = urlParams.get('apiBase');
-  const runtimeAc2Origin = urlParams.get('ac2Origin');
-  const runtimeAc2Url = urlParams.get('ac2Url');
+  const runtimeConfig = window.__AC2_RUNTIME__ && typeof window.__AC2_RUNTIME__ === 'object'
+    ? window.__AC2_RUNTIME__
+    : {};
+
+  function readRuntimeValue(name) {
+    const queryValue = urlParams.get(name);
+    if (typeof queryValue === 'string' && queryValue.trim()) {
+      return queryValue.trim();
+    }
+
+    const configValue = runtimeConfig[name];
+    if (typeof configValue === 'string' && configValue.trim()) {
+      return configValue.trim();
+    }
+
+    return '';
+  }
+
+  function normalizeUrl(value, fallback) {
+    try {
+      return new URL(String(value || '')).toString();
+    } catch {
+      return fallback;
+    }
+  }
+
+  function normalizeOrigin(value, fallback) {
+    try {
+      const parsed = new URL(String(value || ''));
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return fallback;
+      }
+      return parsed.origin;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const defaultSiteOrigin = 'https://geosephlien.github.io';
+  const runtimeApiBase = readRuntimeValue('apiBase');
+  const runtimeAc2Url = normalizeUrl(
+    readRuntimeValue('ac2Url'),
+    `${defaultSiteOrigin}/ac2/?embedded=1&uiMode=modal`
+  );
+  const runtimeAc2Origin = normalizeOrigin(
+    readRuntimeValue('ac2Origin'),
+    normalizeOrigin(runtimeAc2Url, defaultSiteOrigin)
+  );
   const SYSTEM_DEFAULTS = {
     apiBase: runtimeApiBase || 'https://ac2-host-api-avatar-page.kuanyi-lien.workers.dev',
-    ac2Origin: runtimeAc2Origin || 'https://geosephlien.github.io',
-    ac2Url: runtimeAc2Url || 'https://geosephlien.github.io/ac2/?embedded=1&uiMode=modal',
+    ac2Origin: runtimeAc2Origin,
+    ac2Url: runtimeAc2Url,
     locale: 'zh-TW',
     storageTenantKey: 'ac2-landing-tenant'
   };
