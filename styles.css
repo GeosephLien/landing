@@ -1090,6 +1090,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-send-button,
 #verification-resend-button,
 #signup-complete-done-button,
+#signout-cancel-button,
+#signout-confirm-button,
 #download-complete-play-button {
   min-height: 48px;
   min-width: 170px;
@@ -1110,6 +1112,10 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-resend-button:focus-visible,
 #signup-complete-done-button:hover,
 #signup-complete-done-button:focus-visible,
+#signout-cancel-button:hover,
+#signout-cancel-button:focus-visible,
+#signout-confirm-button:hover,
+#signout-confirm-button:focus-visible,
 #download-complete-play-button:hover,
 #download-complete-play-button:focus-visible {
   background: rgba(255, 255, 255, 0.12);
@@ -1121,6 +1127,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-send-button:disabled,
 #verification-resend-button:disabled,
 #signup-complete-done-button:disabled,
+#signout-cancel-button:disabled,
+#signout-confirm-button:disabled,
 #download-complete-play-button:disabled {
   cursor: wait;
   opacity: 0.6;
@@ -1139,6 +1147,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 #verification-resend-button,
 #signup-complete-done-button,
+#signout-cancel-button,
+#signout-confirm-button,
 #download-complete-play-button {
   width: 100%;
   min-width: 0;
@@ -1147,6 +1157,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-download-button:disabled,
 #download-complete-download-button:disabled,
 #signup-complete-done-button:disabled,
+#signout-cancel-button:disabled,
+#signout-confirm-button:disabled,
 #download-complete-play-button:disabled {
   cursor: not-allowed;
   opacity: 0.54;
@@ -1157,6 +1169,8 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 #verification-download-button:disabled::before,
 #download-complete-download-button:disabled::before,
 #signup-complete-done-button:disabled::before,
+#signout-cancel-button:disabled::before,
+#signout-confirm-button:disabled::before,
 #download-complete-play-button:disabled::before {
   opacity: 0.16;
 }
