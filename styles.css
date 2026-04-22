@@ -907,9 +907,11 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 .flow-panel-legal {
   width: min(760px, calc(100vw - 48px));
-  max-height: min(840px, calc(100vh - 48px));
+  max-height: min(840px, calc(100vh - 24px));
   padding: 32px 32px 28px;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .flow-close {
@@ -1036,6 +1038,9 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   display: grid;
   gap: 22px;
   margin-top: 24px;
+  overflow: auto;
+  padding-right: 10px;
+  min-height: 0;
 }
 
 .flow-legal-section {
@@ -1058,6 +1063,29 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
 
 .flow-legal-section p:last-child {
   margin-bottom: 0;
+}
+
+.flow-legal-list {
+  margin: 0 0 14px 1.2rem;
+  padding: 0;
+  color: rgba(229, 236, 255, 0.8);
+  line-height: 1.6;
+}
+
+.flow-legal-list li + li {
+  margin-top: 4px;
+}
+
+.flow-legal-link {
+  color: #d8e8ff;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.flow-legal-link:hover,
+.flow-legal-link:focus-visible {
+  color: #ffffff;
+  outline: none;
 }
 
 #verification-code-input {
@@ -1367,6 +1395,10 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
     width: min(100%, calc(100vw - 24px));
     max-height: calc(100vh - 24px);
     padding: 24px 18px 20px;
+  }
+
+  .flow-legal-panel-copy {
+    padding-right: 4px;
   }
 
   .flow-actions {
