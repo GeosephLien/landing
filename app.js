@@ -95,6 +95,7 @@
     uploadReady: false,
     verificationPanelMode: 'verify',
     verificationFlow: 'avatar',
+    signupRedirectsToDownloadReady: false,
     verificationStep: 'email',
     verifyingCode: false,
     sendingCode: false,
@@ -991,6 +992,9 @@
       state.verifiedCodeValue = '';
       state.authenticationPassed = false;
       state.pendingAccountEmail = '';
+      state.signupRedirectsToDownloadReady = state.verificationFlow === 'signup'
+        ? state.signupRedirectsToDownloadReady
+        : false;
       setVerificationStep('email');
 
       if (verificationEmailInput) {
@@ -1215,8 +1219,10 @@
     });
   }
 
-  function openSignUpFlow() {
+  function openSignUpFlow(options) {
+    const nextOptions = options || {};
     state.verificationFlow = 'signup';
+    state.signupRedirectsToDownloadReady = Boolean(nextOptions.redirectToDownloadReady);
     openVerificationModal({
       resetForm: true,
       focusField: true
@@ -2160,6 +2166,18 @@
       }
 
       if (isSignupVerificationFlow()) {
+        if (state.signupRedirectsToDownloadReady && state.pendingAvatarKey) {
+          await queueClaimDraftAvatar();
+          embeddedSceneLoadedTenant = '';
+          if (embeddedScene && !embeddedScene.hidden) {
+            await loadEmbeddedSceneAvatar({ force: true });
+          }
+          state.resumeToCreator = false;
+          state.downloadCompletedOnce = false;
+          openDownloadReadyModal('Your avatar is ready. Download it now when you are ready to leave.', { tone: 'success' });
+          return;
+        }
+
         showSignupCompletePanel('Congratulations, your email is verified and Full Access is now enabled.', { tone: 'success' });
         return;
       }
@@ -2551,7 +2569,9 @@
 
   if (landingPillSaveAccountButton) {
     landingPillSaveAccountButton.addEventListener('click', () => {
-      openSignUpFlow();
+      openSignUpFlow({
+        redirectToDownloadReady: shouldShowDraftSaveAction()
+      });
     });
   }
 
