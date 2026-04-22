@@ -975,6 +975,78 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   outline-offset: 2px;
 }
 
+.flow-legal-links {
+  margin-top: 14px;
+}
+
+.flow-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8fd3ff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.flow-link-button:hover,
+.flow-link-button:focus-visible {
+  color: #b5e4ff;
+  outline: none;
+}
+
+.flow-checkbox {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 14px;
+  color: rgba(229, 236, 255, 0.88);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.flow-checkbox input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #57b8ff;
+}
+
+.flow-checkbox span {
+  color: inherit;
+}
+
+.flow-checkbox.is-error span {
+  color: #ffb4c4;
+}
+
+.flow-legal-panel-copy {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.flow-legal-section {
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(7, 12, 34, 0.62);
+}
+
+.flow-legal-section h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.flow-legal-section p {
+  margin: 0;
+  color: rgba(229, 236, 255, 0.8);
+  line-height: 1.6;
+}
+
 #verification-code-input {
   width: min(100%, 360px);
   min-height: 80px;

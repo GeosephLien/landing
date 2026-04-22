@@ -40,6 +40,9 @@
   const verificationResendRow = document.getElementById('verification-resend-row');
   const verificationEmailInput = document.getElementById('verification-email-input');
   const verificationCodeInput = document.getElementById('verification-code-input');
+  const verificationOpenLegalButton = document.getElementById('verification-open-legal-button');
+  const verificationLegalConsentInput = document.getElementById('verification-legal-consent-input');
+  const verificationMarketingConsentInput = document.getElementById('verification-marketing-consent-input');
   const verificationStatus = document.getElementById('verification-status');
   const verificationProgress = document.getElementById('verification-progress');
   const verificationProgressBar = document.getElementById('verification-progress-bar');
@@ -58,6 +61,8 @@
   const signoutConfirmationModal = document.getElementById('signout-confirmation-modal');
   const signoutCloseButton = document.getElementById('signout-close-button');
   const signoutConfirmButton = document.getElementById('signout-confirm-button');
+  const legalModal = document.getElementById('legal-modal');
+  const legalCloseButton = document.getElementById('legal-close-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
   const state = {
@@ -96,7 +101,10 @@
     downloading: false,
     downloadCompletedOnce: false,
     currentUserEmail: '',
-    forgettingUser: false
+    forgettingUser: false,
+    acceptedLegalTerms: false,
+    acceptedMarketing: false,
+    legalConsentTouched: false
   };
 
   const FRAME_STYLE = {
@@ -379,6 +387,33 @@
     if (element === verificationModal && embeddedVrmScene && typeof embeddedVrmScene.setInteractionEnabled === 'function') {
       embeddedVrmScene.setInteractionEnabled(!isOpen);
     }
+  }
+
+  function hasRequiredVerificationConsent() {
+    return Boolean(verificationLegalConsentInput && verificationLegalConsentInput.checked);
+  }
+
+  function syncVerificationConsentState() {
+    state.acceptedLegalTerms = hasRequiredVerificationConsent();
+    state.acceptedMarketing = Boolean(verificationMarketingConsentInput && verificationMarketingConsentInput.checked);
+
+    const legalCheckboxRow = verificationLegalConsentInput
+      ? verificationLegalConsentInput.closest('.flow-checkbox')
+      : null;
+    if (legalCheckboxRow) {
+      legalCheckboxRow.classList.toggle(
+        'is-error',
+        !state.acceptedLegalTerms && state.verificationStep === 'email' && state.legalConsentTouched
+      );
+    }
+  }
+
+  function openLegalModal() {
+    toggleModal(legalModal, true);
+  }
+
+  function closeLegalModal() {
+    toggleModal(legalModal, false);
   }
 
   function openAc2Modal() {
@@ -894,7 +929,13 @@
     );
 
     if (verificationSendButton) {
-      verificationSendButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
+      verificationSendButton.disabled = (
+        !state.acceptedLegalTerms
+        || state.sendingCode
+        || state.downloading
+        || state.verifyingCode
+        || state.claimInFlight
+      );
       verificationSendButton.textContent = state.sendingCode ? 'Sending...' : 'Send Code';
     }
 
@@ -955,6 +996,13 @@
       if (verificationEmailInput) {
         verificationEmailInput.value = '';
       }
+      if (verificationLegalConsentInput) {
+        verificationLegalConsentInput.checked = false;
+      }
+      if (verificationMarketingConsentInput) {
+        verificationMarketingConsentInput.checked = false;
+      }
+      state.legalConsentTouched = false;
       if (verificationCodeInput) {
         verificationCodeInput.value = '';
         verificationCodeInput.classList.remove('input-error');
@@ -966,6 +1014,7 @@
     }
 
     setVerificationProgress(0, 'Waiting to download...', { hidden: true });
+    syncVerificationConsentState();
     updateVerificationStatusForState();
     syncVerificationButtons();
     window.setTimeout(() => {
@@ -1186,6 +1235,12 @@
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
       throw new Error('Enter a valid email address first.');
+    }
+    if (!hasRequiredVerificationConsent()) {
+      state.legalConsentTouched = true;
+      syncVerificationConsentState();
+      syncVerificationButtons();
+      throw new Error('You must agree to the Terms of Service and acknowledge the Privacy Policy first.');
     }
 
     state.pendingAccountEmail = normalizedEmail;
@@ -2400,6 +2455,23 @@
     });
   }
 
+  if (verificationLegalConsentInput) {
+    verificationLegalConsentInput.addEventListener('change', () => {
+      state.legalConsentTouched = true;
+      syncVerificationConsentState();
+      syncVerificationButtons();
+      if (state.acceptedLegalTerms) {
+        updateVerificationStatusForState();
+      }
+    });
+  }
+
+  if (verificationMarketingConsentInput) {
+    verificationMarketingConsentInput.addEventListener('change', () => {
+      syncVerificationConsentState();
+    });
+  }
+
   if (verificationCodeInput) {
     verificationCodeInput.addEventListener('input', () => {
       handleVerificationCodeInput();
@@ -2419,6 +2491,18 @@
       requestDownloadCode(verificationEmailInput ? verificationEmailInput.value : '').catch((error) => {
         setStatus(verificationStatus, error.message || 'Failed to send verification code.', 'error');
       });
+    });
+  }
+
+  if (verificationOpenLegalButton) {
+    verificationOpenLegalButton.addEventListener('click', () => {
+      openLegalModal();
+    });
+  }
+
+  if (legalCloseButton) {
+    legalCloseButton.addEventListener('click', () => {
+      closeLegalModal();
     });
   }
 
@@ -2510,5 +2594,6 @@
 
   syncPrimaryActionButton();
   syncSceneActionButtons();
+  syncVerificationConsentState();
   bootstrapCurrentUser();
 })();
