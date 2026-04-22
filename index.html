@@ -197,12 +197,19 @@
   <div id="signout-confirmation-modal" class="flow-modal" hidden>
     <div class="flow-backdrop"></div>
     <section class="flow-panel flow-panel-compact" role="dialog" aria-modal="true" aria-labelledby="signout-confirmation-title">
+      <button
+        id="signout-close-button"
+        class="flow-close"
+        type="button"
+        aria-label="Close sign out confirmation"
+      >
+        ×
+      </button>
       <div class="flow-header">
         <h2 id="signout-confirmation-title">See You!</h2>
         <p class="flow-status flow-status-static">You can sign in again anytime using your email.</p>
       </div>
       <div class="flow-actions flow-actions-stacked">
-        <button id="signout-cancel-button" class="flow-secondary" type="button">Cancel</button>
         <button id="signout-confirm-button" class="flow-secondary" type="button">Confirm</button>
       </div>
     </section>

@@ -56,7 +56,7 @@
   const downloadCompleteDownloadButton = document.getElementById('download-complete-download-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
   const signoutConfirmationModal = document.getElementById('signout-confirmation-modal');
-  const signoutCancelButton = document.getElementById('signout-cancel-button');
+  const signoutCloseButton = document.getElementById('signout-close-button');
   const signoutConfirmButton = document.getElementById('signout-confirm-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
@@ -2477,8 +2477,8 @@
     });
   }
 
-  if (signoutCancelButton) {
-    signoutCancelButton.addEventListener('click', () => {
+  if (signoutCloseButton) {
+    signoutCloseButton.addEventListener('click', () => {
       closeSignoutConfirmationModal();
     });
   }
