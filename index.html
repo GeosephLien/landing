@@ -32,7 +32,7 @@
 <body>
   <div id="landing-user-pill" class="landing-user-pill" hidden aria-live="polite">
     <span id="landing-user-pill-text">Hi,</span>
-    <button id="landing-forget-me-button" class="landing-user-pill-action" type="button">Forget me</button>
+    <button id="landing-forget-me-button" class="landing-user-pill-action" type="button">Sign Out</button>
     <button id="landing-pill-open-ac2-button" class="landing-user-pill-action landing-user-pill-action-primary" type="button" hidden>My Avatars</button>
     <button id="landing-pill-create-avatar-button" class="landing-user-pill-action" type="button" hidden>Create New Avatar</button>
     <button id="landing-pill-download-avatar-button" class="landing-user-pill-action" type="button" hidden>Download This Avatar</button>
@@ -190,6 +190,20 @@
         <div class="flow-inline-action" id="download-complete-play-row">
           <button id="download-complete-play-button" class="hero-secondary-cta flow-secondary" type="button">Done</button>
         </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="signout-confirmation-modal" class="flow-modal" hidden>
+    <div class="flow-backdrop"></div>
+    <section class="flow-panel flow-panel-compact" role="dialog" aria-modal="true" aria-labelledby="signout-confirmation-title">
+      <div class="flow-header">
+        <h2 id="signout-confirmation-title">You are about to sign out</h2>
+        <p class="flow-status flow-status-static">You can sign in again later using your email.</p>
+      </div>
+      <div class="flow-actions flow-actions-stacked">
+        <button id="signout-cancel-button" class="hero-cta flow-primary" type="button">Cancel</button>
+        <button id="signout-confirm-button" class="hero-cta flow-primary" type="button">Confirm</button>
       </div>
     </section>
   </div>

@@ -55,6 +55,9 @@
   const downloadCompletePanel = document.getElementById('download-complete-panel');
   const downloadCompleteDownloadButton = document.getElementById('download-complete-download-button');
   const downloadCompletePlayButton = document.getElementById('download-complete-play-button');
+  const signoutConfirmationModal = document.getElementById('signout-confirmation-modal');
+  const signoutCancelButton = document.getElementById('signout-cancel-button');
+  const signoutConfirmButton = document.getElementById('signout-confirm-button');
   const verificationCloseTargets = Array.from(document.querySelectorAll('[data-close-verification]'));
 
   const state = {
@@ -228,6 +231,7 @@
     const showGuestDraftActions = shouldShowDraftSaveAction();
     const showGuestSaveAction = !hasAuthenticatedUser();
     const showGuestCreateAvatarAction = sceneVisible && showGuestDraftActions;
+    const showGuestDraftSavePrimaryAction = sceneVisible && showGuestDraftActions;
     const showAvatarAccess = hasAuthenticatedUser();
     const showSceneDownloadAction = false;
     const showSceneBackButton = sceneVisible && hasAuthenticatedUser();
@@ -254,7 +258,10 @@
     if (landingPillSaveAccountButton) {
       landingPillSaveAccountButton.hidden = !showGuestSaveAction;
       landingPillSaveAccountButton.disabled = state.sendingCode || state.downloading || state.verifyingCode || state.claimInFlight;
-      landingPillSaveAccountButton.textContent = 'Sign Up';
+      landingPillSaveAccountButton.textContent = showGuestDraftSavePrimaryAction
+        ? 'Sign Up to Download Your Avatar'
+        : 'Sign Up';
+      landingPillSaveAccountButton.classList.toggle('landing-user-pill-action-primary', showGuestDraftSavePrimaryAction);
     }
 
     if (forgetMeButton) {
@@ -274,7 +281,7 @@
       userPillText.textContent = `Hi, ${normalized}`;
       userPill.hidden = false;
       if (forgetMeButton) {
-        forgetMeButton.textContent = 'Forget me';
+        forgetMeButton.textContent = 'Sign Out';
         forgetMeButton.disabled = state.forgettingUser;
       }
       syncPrimaryActionButton();
@@ -286,7 +293,7 @@
       userPill.hidden = false;
       userPillText.textContent = "Welcome! You're Guest Mode";
       if (forgetMeButton) {
-        forgetMeButton.textContent = 'Forget me';
+        forgetMeButton.textContent = 'Sign Out';
         forgetMeButton.disabled = false;
       }
       syncPrimaryActionButton();
@@ -297,7 +304,7 @@
     userPill.hidden = true;
     userPillText.textContent = 'Hi,';
     if (forgetMeButton) {
-      forgetMeButton.textContent = 'Forget me';
+      forgetMeButton.textContent = 'Sign Out';
       forgetMeButton.disabled = false;
     }
     syncPrimaryActionButton();
@@ -983,6 +990,14 @@
     setVerificationProgress(0, 'Waiting to download...', { hidden: true });
   }
 
+  function openSignoutConfirmationModal() {
+    toggleModal(signoutConfirmationModal, true);
+  }
+
+  function closeSignoutConfirmationModal() {
+    toggleModal(signoutConfirmationModal, false);
+  }
+
   async function requestDraftSession() {
     const response = await fetch(`${SYSTEM_DEFAULTS.apiBase}/api/ac2/draft-session`, {
       method: 'POST',
@@ -1127,7 +1142,7 @@
   }
 
   function handleUserPillAction() {
-    handleForgetMe();
+    openSignoutConfirmationModal();
   }
 
   function adoptAuthenticatedEmail(email) {
@@ -2459,6 +2474,19 @@
   if (signupCompleteDoneButton) {
     signupCompleteDoneButton.addEventListener('click', () => {
       closeVerificationModal();
+    });
+  }
+
+  if (signoutCancelButton) {
+    signoutCancelButton.addEventListener('click', () => {
+      closeSignoutConfirmationModal();
+    });
+  }
+
+  if (signoutConfirmButton) {
+    signoutConfirmButton.addEventListener('click', () => {
+      closeSignoutConfirmationModal();
+      handleForgetMe();
     });
   }
 

@@ -1001,6 +1001,11 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   color: #8fffd8;
 }
 
+.flow-status-static {
+  min-height: 0;
+  margin-top: 0;
+}
+
 .flow-progress {
   display: grid;
   gap: 10px;
@@ -1208,6 +1213,10 @@ body.hero-assets-ready .hero-figure-single .hero-figure-image-main {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 22px;
+}
+
+.flow-actions-stacked {
+  flex-direction: column;
 }
 
 .flow-primary,
